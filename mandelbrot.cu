@@ -1,7 +1,7 @@
 // Compile with: nvcc -ptx mandelbrot.cu -o mandelbrot.ptx -arch=sm_86
 
 extern "C" __global__
-void mandelbrot(unsigned char* output, int width, int height, int max_iter,
+void mandelbrot(int* output, int width, int height, int max_iter,
                 float x_min, float x_max, float y_min, float y_max) {
     int px = blockIdx.x * blockDim.x + threadIdx.x;
     int py = blockIdx.y * blockDim.y + threadIdx.y;
@@ -24,12 +24,7 @@ void mandelbrot(unsigned char* output, int width, int height, int max_iter,
         iteration++;
     }
     
-    // Map iteration count to grayscale value
+    // Output raw iteration count
     int idx = py * width + px;
-    if (iteration == max_iter) {
-        output[idx] = 0;  // Inside set = black
-    } else {
-        // Smooth coloring: normalize to 0-255
-        output[idx] = (unsigned char)(255.0f * iteration / max_iter);
-    }
+    output[idx] = iteration;
 }
