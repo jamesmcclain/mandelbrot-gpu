@@ -1,4 +1,4 @@
-// Compile with: $HOME/local/llvm-22.1.0-rc3/bin/clang -target nvptx64 -x cl -S mandelbrot.cl -o mandelbrot.ptx
+// Compile with: $HOME/local/llvm-22.1.0-rc3/bin/clang -target nvptx64 -march=sm_86 -x cl -O3 -Xclang -finclude-default-header -cl-std=CL2.0 -Xclang -target-feature -Xclang +ptx71 -S mandelbrot.cl -o mandelbrot.ptx
 
 // Helper function to get global work-item ID using NVVM intrinsics
 inline size_t get_global_id(uint dim) {

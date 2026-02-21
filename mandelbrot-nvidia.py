@@ -2,8 +2,9 @@
 
 import argparse
 
-import cupy as cp
 import numpy as np
+import pycuda.autoinit
+import pycuda.driver as cuda
 from PIL import Image
 
 
@@ -176,29 +177,37 @@ def main():
     OUTPUT_FILE = args.output
     THEME = args.theme
 
-    X_MIN, X_MAX = -2.5, 1.0
-    Y_MIN, Y_MAX = -1.0, 1.0
+    X_MIN, X_MAX = np.float32(-2.5), np.float32(1.0)
+    Y_MIN, Y_MAX = np.float32(-1.0), np.float32(1.0)
 
-    mod = cp.RawModule(path="mandelbrot.ptx")
+    mod = cuda.module_from_file("mandelbrot.ptx")
     mandelbrot_kernel = mod.get_function("mandelbrot")
 
-    # Allocate output buffer on GPU (now int32 for raw iteration counts)
-    output = cp.zeros((HEIGHT, WIDTH), dtype=cp.int32)
+    # Allocate output buffer on GPU (int32 for raw iteration counts)
+    output_host = np.zeros((HEIGHT, WIDTH), dtype=np.int32)
+    output_gpu = cuda.mem_alloc(output_host.nbytes)
 
     # Configure grid and block dimensions
-    threads_per_block = (16, 16)
+    threads_per_block = (16, 16, 1)
     blocks_x = (WIDTH + threads_per_block[0] - 1) // threads_per_block[0]
     blocks_y = (HEIGHT + threads_per_block[1] - 1) // threads_per_block[1]
-    blocks = (blocks_x, blocks_y)
+    grid = (blocks_x, blocks_y, 1)
 
     # Launch kernel
-    mandelbrot_kernel(
-        blocks, threads_per_block,
-        (output, WIDTH, HEIGHT, MAX_ITER, cp.float32(X_MIN), cp.float32(X_MAX),
-         cp.float32(Y_MIN), cp.float32(Y_MAX)))
+    mandelbrot_kernel(output_gpu,
+                      np.int32(WIDTH),
+                      np.int32(HEIGHT),
+                      np.int32(MAX_ITER),
+                      X_MIN,
+                      X_MAX,
+                      Y_MIN,
+                      Y_MAX,
+                      block=threads_per_block,
+                      grid=grid)
 
     # Copy result back to CPU
-    result = cp.asnumpy(output)
+    cuda.memcpy_dtoh(output_host, output_gpu)
+    result = output_host
 
     # Normalize iteration counts to 0-255 range for color mapping
     # Use a fixed scale for consistent colors regardless of max_iter
