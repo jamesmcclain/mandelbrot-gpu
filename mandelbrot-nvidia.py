@@ -20,8 +20,8 @@ FAMOUS_VIEWS = [
     {
         "name": "Overview",
         "slug": "overview",
-        "x_min": -2.5,
-        "x_max": 1.0,
+        "x_min": -2.9722,
+        "x_max": 1.4722,
         "y_min": -1.25,
         "y_max": 1.25,
         "max_iter": 512,
@@ -35,9 +35,9 @@ FAMOUS_VIEWS = [
         "slug":
         "seahorse_valley",
         "x_min":
-        -0.768,
+        -0.7828,
         "x_max":
-        -0.698,
+        -0.6832,
         "y_min":
         0.092,
         "y_max":
@@ -55,9 +55,9 @@ FAMOUS_VIEWS = [
         "slug":
         "elephant_valley",
         "x_min":
-        0.250,
+        0.1994,
         "x_max":
-        0.380,
+        0.4306,
         "y_min":
         -0.065,
         "y_max":
@@ -72,8 +72,8 @@ FAMOUS_VIEWS = [
     {
         "name": "Double Spiral",
         "slug": "double_spiral",
-        "x_min": -0.7700,
-        "x_max": -0.7350,
+        "x_min": -0.7801,
+        "x_max": -0.7249,
         "y_min": 0.1000,
         "y_max": 0.1310,
         "max_iter": 2048,
@@ -83,8 +83,8 @@ FAMOUS_VIEWS = [
     {
         "name": "Starfish",
         "slug": "starfish",
-        "x_min": -0.490,
-        "x_max": -0.410,
+        "x_min": -0.5122,
+        "x_max": -0.3878,
         "y_min": 0.540,
         "y_max": 0.610,
         "max_iter": 1024,
@@ -94,8 +94,8 @@ FAMOUS_VIEWS = [
     {
         "name": "Triple Spiral",
         "slug": "triple_spiral",
-        "x_min": -0.0920,
-        "x_max": -0.0640,
+        "x_min": -0.0984,
+        "x_max": -0.0576,
         "y_min": 0.6490,
         "y_max": 0.6720,
         "max_iter": 2048,
@@ -108,9 +108,9 @@ FAMOUS_VIEWS = [
         "slug":
         "mini_mandelbrot",
         "x_min":
-        -1.7900,
+        -1.8082,
         "x_max":
-        -1.7730,
+        -1.7548,
         "y_min":
         -0.0150,
         "y_max":
@@ -125,8 +125,8 @@ FAMOUS_VIEWS = [
     {
         "name": "Feather",
         "slug": "feather",
-        "x_min": -0.7520,
-        "x_max": -0.7440,
+        "x_min": -0.7538,
+        "x_max": -0.7422,
         "y_min": 0.0920,
         "y_max": 0.0985,
         "max_iter": 2048,
@@ -136,8 +136,8 @@ FAMOUS_VIEWS = [
     {
         "name": "Spiral Tendril",
         "slug": "spiral_tendril",
-        "x_min": -1.6260,
-        "x_max": -1.6000,
+        "x_min": -1.6450,
+        "x_max": -1.5810,
         "y_min": -0.0180,
         "y_max": 0.0180,
         "max_iter": 1024,
@@ -147,8 +147,8 @@ FAMOUS_VIEWS = [
     {
         "name": "Quad Spiral",
         "slug": "quad_spiral",
-        "x_min": -0.1580,
-        "x_max": -0.1060,
+        "x_min": -0.1658,
+        "x_max": -0.0982,
         "y_min": 0.8430,
         "y_max": 0.8810,
         "max_iter": 2048,
