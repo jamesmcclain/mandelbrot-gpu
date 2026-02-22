@@ -1,11 +1,11 @@
-// Compile with: $HOME/local/llvm-22.1.0-rc3/bin/clang -target nvptx64 -march=sm_86 -x cl -O3 -Xclang -finclude-default-header -cl-std=CL2.0 -Xclang -target-feature -Xclang +ptx71 -S mandelbrot.cl -o mandelbrot.ptx
-
-// Helper function to get global work-item ID using NVVM intrinsics
-inline size_t get_global_id(uint dim) {
-    if (dim == 0) return __nvvm_read_ptx_sreg_tid_x() + __nvvm_read_ptx_sreg_ctaid_x() * __nvvm_read_ptx_sreg_ntid_x();
-    if (dim == 1) return __nvvm_read_ptx_sreg_tid_y() + __nvvm_read_ptx_sreg_ctaid_y() * __nvvm_read_ptx_sreg_ntid_y();
-    return 0;
-}
+// $HOME/local/llvm-22.1.0-rc3/bin/clang \
+//   -target nvptx64-nvidia-cuda -march=sm_86 \
+//   -x cl -O3 -cl-std=CL2.0 \
+//   -Xclang -finclude-default-header \
+//   -Xclang -target-feature -Xclang +ptx71 \
+//   -Xclang -mlink-builtin-bitcode \
+//   -Xclang $HOME/local/llvm-22.1.0-rc3/share/clc/nvptx64-nvidia-cuda.bc \
+//   -S mandelbrot.cl -o mandelbrot.ptx
 
 __kernel void mandelbrot(__global int* output,
                          const int width,
