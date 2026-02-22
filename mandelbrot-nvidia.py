@@ -1,24 +1,227 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import numpy as np
 import pycuda.autoinit
 import pycuda.driver as cuda
 from PIL import Image
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Famous Mandelbrot views
+#
+# Each entry is a tuple:
+#   (name, slug, x_min, x_max, y_min, y_max, recommended_max_iter, theme)
+#
+# Coordinates chosen to look great at float32 precision (not excessively deep).
+# ─────────────────────────────────────────────────────────────────────────────
+FAMOUS_VIEWS = [
+    {
+        "name": "Overview",
+        "slug": "overview",
+        "x_min": -2.9722,
+        "x_max": 1.4722,
+        "y_min": -1.25,
+        "y_max": 1.25,
+        "max_iter": 512,
+        "theme": "classic",
+        "desc":
+        "The full Mandelbrot set — the iconic cardioid and primary bulb",
+    },
+    {
+        "name":
+        "Seahorse Valley",
+        "slug":
+        "seahorse_valley",
+        "x_min":
+        -0.7828,
+        "x_max":
+        -0.6832,
+        "y_min":
+        0.092,
+        "y_max":
+        0.148,
+        "max_iter":
+        1024,
+        "theme":
+        "ice",
+        "desc":
+        "The classic 'Seahorse Valley' between the main cardioid and period-2 bulb",
+    },
+    {
+        "name":
+        "Elephant Valley",
+        "slug":
+        "elephant_valley",
+        "x_min":
+        0.1994,
+        "x_max":
+        0.4306,
+        "y_min":
+        -0.065,
+        "y_max":
+        0.065,
+        "max_iter":
+        1024,
+        "theme":
+        "fire",
+        "desc":
+        "The 'Elephant Valley' on the right side — elephants marching in a row",
+    },
+    {
+        "name": "Double Spiral",
+        "slug": "double_spiral",
+        "x_min": -0.7801,
+        "x_max": -0.7249,
+        "y_min": 0.1000,
+        "y_max": 0.1310,
+        "max_iter": 2048,
+        "theme": "emacs",
+        "desc": "A stunning double-spiral inside Seahorse Valley",
+    },
+    {
+        "name": "Starfish",
+        "slug": "starfish",
+        "x_min": -0.5122,
+        "x_max": -0.3878,
+        "y_min": 0.540,
+        "y_max": 0.610,
+        "max_iter": 1024,
+        "theme": "rainbow",
+        "desc": "The 'Starfish' — a five-armed spiral off the main body",
+    },
+    {
+        "name": "Triple Spiral",
+        "slug": "triple_spiral",
+        "x_min": -0.0984,
+        "x_max": -0.0576,
+        "y_min": 0.6490,
+        "y_max": 0.6720,
+        "max_iter": 2048,
+        "theme": "classic",
+        "desc": "A triple spiral near the upper filaments",
+    },
+    {
+        "name":
+        "Mini Mandelbrot",
+        "slug":
+        "mini_mandelbrot",
+        "x_min":
+        -1.8082,
+        "x_max":
+        -1.7548,
+        "y_min":
+        -0.0150,
+        "y_max":
+        0.0150,
+        "max_iter":
+        2048,
+        "theme":
+        "emacs",
+        "desc":
+        "A self-similar 'mini-brot' on the real axis to the left of the main set",
+    },
+    {
+        "name": "Feather",
+        "slug": "feather",
+        "x_min": -0.7538,
+        "x_max": -0.7422,
+        "y_min": 0.0920,
+        "y_max": 0.0985,
+        "max_iter": 2048,
+        "theme": "ice",
+        "desc": "A delicate feather-shaped region inside Seahorse Valley",
+    },
+    {
+        "name": "Spiral Tendril",
+        "slug": "spiral_tendril",
+        "x_min": -1.6450,
+        "x_max": -1.5810,
+        "y_min": -0.0180,
+        "y_max": 0.0180,
+        "max_iter": 1024,
+        "theme": "fire",
+        "desc": "Spiralling tendrils on the tip of the left antenna",
+    },
+    {
+        "name": "Quad Spiral",
+        "slug": "quad_spiral",
+        "x_min": -0.1658,
+        "x_max": -0.0982,
+        "y_min": 0.8430,
+        "y_max": 0.8810,
+        "max_iter": 2048,
+        "theme": "rainbow",
+        "desc": "A four-armed spiral galaxy in the upper filaments",
+    },
+]
+
+# Build a lookup dict by slug for CLI use
+_VIEWS_BY_SLUG = {v["slug"]: v for v in FAMOUS_VIEWS}
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 def parse_arguments():
+    slug_list = ", ".join(v["slug"] for v in FAMOUS_VIEWS)
+
     # yapf: disable
-    parser = argparse.ArgumentParser(description='Generate Mandelbrot set image using CUDA')
-    parser.add_argument('--width', type=int, default=3840, help='Image width in pixels (default: 3840)')
-    parser.add_argument('--height', type=int, default=2160, help='Image height in pixels (default: 2160)')
-    parser.add_argument('--max-iter', type=int, default=1024, help='Maximum iterations (default: 1024)')
-    parser.add_argument('--output', '-o', type=str, default='mandelbrot.png', help='Output PNG file (default: mandelbrot.png)')
-    parser.add_argument('--theme', type=str, default='classic', choices=['grayscale', 'emacs', 'fire', 'ice', 'rainbow', 'classic'], help='Color theme (default: classic)')
-    args = parser.parse_args()
+    parser = argparse.ArgumentParser(
+        description='Generate famous Mandelbrot set images using CUDA',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f"Available view slugs:\n  {slug_list}\n\n"
+               "Custom view format:  name:x_min:x_max:y_min:y_max[:max_iter[:theme]]\n"
+               "  Example: myview:-0.76:-0.70:0.09:0.15:1024:ice\n"
+    )
+    parser.add_argument('--views', '-v', nargs='+', metavar='SLUG_OR_CUSTOM', help='Views to render: slug names from the built-in list, or custom specs (see below). Defaults to all 10 built-in views.')
+    parser.add_argument('--list-views', action='store_true',help='Print all built-in views and exit')
+    parser.add_argument('--width',    type=int, default=3840, help='Image width in pixels (default: 3840)')
+    parser.add_argument('--height',   type=int, default=2160, help='Image height in pixels (default: 2160)')
+    parser.add_argument('--max-iter', type=int, default=None, help='Override max iterations for all views')
+    parser.add_argument('--theme',    type=str, default=None, choices=['grayscale', 'emacs', 'fire', 'ice', 'rainbow', 'classic'], help='Override color theme for all views')
+    parser.add_argument('--output-dir', '-d', type=str, default='.', help='Directory to write output PNGs (default: current dir)')
     # yapf: enable
-    return args
+    return parser.parse_args()
+
+
+def parse_custom_view(spec):
+    """Parse a custom view spec: name:x_min:x_max:y_min:y_max[:max_iter[:theme]]"""
+    parts = spec.split(':')
+    if len(parts) < 5:
+        raise argparse.ArgumentTypeError(
+            f"Custom view '{spec}' needs at least name:x_min:x_max:y_min:y_max"
+        )
+    name = parts[0]
+    x_min = float(parts[1])
+    x_max = float(parts[2])
+    y_min = float(parts[3])
+    y_max = float(parts[4])
+    max_iter = int(parts[5]) if len(parts) > 5 else 1024
+    theme = parts[6] if len(parts) > 6 else 'classic'
+    slug = name.lower().replace(' ', '_')
+    return {
+        "name": name,
+        "slug": slug,
+        "x_min": x_min,
+        "x_max": x_max,
+        "y_min": y_min,
+        "y_max": y_max,
+        "max_iter": max_iter,
+        "theme": theme,
+        "desc": "Custom view",
+    }
+
+
+def resolve_views(view_specs):
+    """Resolve a list of slug names or custom specs to view dicts."""
+    result = []
+    for spec in view_specs:
+        if spec in _VIEWS_BY_SLUG:
+            result.append(_VIEWS_BY_SLUG[spec])
+        else:
+            result.append(parse_custom_view(spec))
+    return result
 
 
 def apply_color_theme(data, theme):
@@ -35,44 +238,29 @@ def apply_color_theme(data, theme):
     if theme == 'grayscale':
         return data
 
-    # Create RGB image
     height, width = data.shape
     rgb = np.zeros((height, width, 3), dtype=np.uint8)
-
-    # Normalize to 0-1 range
     normalized = data.astype(np.float32) / 255.0
 
     if theme == 'emacs':
-        # Emacs color scheme: Black → Blue → Cyan → Green-Yellow → Yellow → Orange → Red
-        # Based on the mandelbrot-text.el color scheme
-
-        # Define color stops (normalized positions and RGB values)
-        # Thresholds from emacs: 0, 4, 8, 16, 32, 64, 96, 128, 160, 192, 224, 256
-        # As fractions: 0, 0.0156, 0.0312, 0.0625, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0
         stops = [
-            (0.0, (0, 0, 0)),  # Black (in set)
-            (0.0156, (0, 0, 51)),  # Very dark blue
-            (0.0312, (0, 0, 102)),  # Dark blue
-            (0.0625, (0, 0, 204)),  # Blue
-            (0.125, (0, 102, 255)),  # Light blue
-            (0.25, (0, 204, 255)),  # Cyan
-            (0.375, (0, 255, 204)),  # Cyan-green
-            (0.5, (204, 255, 0)),  # Yellow-green
-            (0.625, (255, 204, 0)),  # Yellow
-            (0.75, (255, 102, 0)),  # Orange
-            (0.875, (255, 51, 0)),  # Red-orange
-            (1.0, (204, 0, 0))  # Red
+            (0.0, (0, 0, 0)),
+            (0.0156, (0, 0, 51)),
+            (0.0312, (0, 0, 102)),
+            (0.0625, (0, 0, 204)),
+            (0.125, (0, 102, 255)),
+            (0.25, (0, 204, 255)),
+            (0.375, (0, 255, 204)),
+            (0.5, (204, 255, 0)),
+            (0.625, (255, 204, 0)),
+            (0.75, (255, 102, 0)),
+            (0.875, (255, 51, 0)),
+            (1.0, (204, 0, 0)),
         ]
-
-        # Interpolate colors
         for i in range(len(stops) - 1):
             pos1, color1 = stops[i]
             pos2, color2 = stops[i + 1]
-
-            # Find pixels in this range
             mask = (normalized >= pos1) & (normalized < pos2)
-
-            # Linear interpolation
             if np.any(mask):
                 t = (normalized[mask] - pos1) / (pos2 - pos1)
                 rgb[mask, 0] = (color1[0] + t *
@@ -81,48 +269,30 @@ def apply_color_theme(data, theme):
                                 (color2[1] - color1[1])).astype(np.uint8)
                 rgb[mask, 2] = (color1[2] + t *
                                 (color2[2] - color1[2])).astype(np.uint8)
-
-        # Handle the maximum value (exactly 1.0)
         mask = normalized >= 1.0
         if np.any(mask):
             rgb[mask] = stops[-1][1]
 
     elif theme == 'fire':
-        # Black -> Red -> Yellow -> White
-        rgb[:, :, 0] = np.minimum(255,
-                                  normalized * 512).astype(np.uint8)  # Red
-        rgb[:, :,
-            1] = np.maximum(0,
-                            (normalized - 0.5) * 512).astype(np.uint8)  # Green
-        rgb[:, :, 2] = np.maximum(0, (normalized - 0.75) * 1024).astype(
-            np.uint8)  # Blue
+        rgb[:, :, 0] = np.minimum(255, normalized * 512).astype(np.uint8)
+        rgb[:, :, 1] = np.maximum(0, (normalized - 0.5) * 512).astype(np.uint8)
+        rgb[:, :, 2] = np.maximum(0,
+                                  (normalized - 0.75) * 1024).astype(np.uint8)
 
     elif theme == 'ice':
-        # Black -> Blue -> Cyan -> White
-        rgb[:, :, 2] = np.minimum(255,
-                                  normalized * 512).astype(np.uint8)  # Blue
-        rgb[:, :,
-            1] = np.maximum(0,
-                            (normalized - 0.5) * 512).astype(np.uint8)  # Green
-        rgb[:, :,
-            0] = np.maximum(0,
-                            (normalized - 0.75) * 1024).astype(np.uint8)  # Red
+        rgb[:, :, 2] = np.minimum(255, normalized * 512).astype(np.uint8)
+        rgb[:, :, 1] = np.maximum(0, (normalized - 0.5) * 512).astype(np.uint8)
+        rgb[:, :, 0] = np.maximum(0,
+                                  (normalized - 0.75) * 1024).astype(np.uint8)
 
     elif theme == 'rainbow':
-        # Full spectrum cycling
-        # Use HSV-like mapping: vary hue based on value
-        hue = normalized * 6.0  # 0-6 range for color cycling
-
-        # Convert HSV to RGB (simplified, S=1, V=normalized)
+        hue = normalized * 6.0
         h_i = hue.astype(np.int32) % 6
         f = hue - h_i
-
         p = np.zeros_like(normalized)
         q = normalized * (1 - f)
         t = normalized * f
         v = normalized
-
-        # Assign RGB based on hue sector
         rgb[:, :, 0] = np.where(
             h_i == 0, v * 255,
             np.where(
@@ -132,7 +302,6 @@ def apply_color_theme(data, theme):
                     np.where(h_i == 3, p * 255,
                              np.where(h_i == 4, t * 255,
                                       v * 255))))).astype(np.uint8)
-
         rgb[:, :, 1] = np.where(
             h_i == 0, t * 255,
             np.where(
@@ -142,7 +311,6 @@ def apply_color_theme(data, theme):
                     np.where(h_i == 3, q * 255,
                              np.where(h_i == 4, p * 255,
                                       p * 255))))).astype(np.uint8)
-
         rgb[:, :, 2] = np.where(
             h_i == 0, p * 255,
             np.where(
@@ -154,94 +322,113 @@ def apply_color_theme(data, theme):
                                       q * 255))))).astype(np.uint8)
 
     elif theme == 'classic':
-        # Classic blue-purple Mandelbrot coloring
-        # Black -> Dark Blue -> Purple -> Pink -> White
-        rgb[:, :,
-            0] = np.minimum(255,
-                            normalized * 400).astype(np.uint8)  # Red (slower)
-        rgb[:, :, 1] = np.maximum(0, (normalized - 0.6) * 640).astype(
-            np.uint8)  # Green (latest)
-        rgb[:, :,
-            2] = np.minimum(255,
-                            normalized * 600).astype(np.uint8)  # Blue (faster)
+        rgb[:, :, 0] = np.minimum(255, normalized * 400).astype(np.uint8)
+        rgb[:, :, 1] = np.maximum(0, (normalized - 0.6) * 640).astype(np.uint8)
+        rgb[:, :, 2] = np.minimum(255, normalized * 600).astype(np.uint8)
 
     return rgb
+
+
+def render_view(view, kernel, WIDTH, HEIGHT, max_iter_override, theme_override,
+                output_dir):
+    max_iter = max_iter_override if max_iter_override is not None else view[
+        "max_iter"]
+    theme = theme_override if theme_override is not None else view["theme"]
+
+    x_min = np.float32(view["x_min"])
+    x_max = np.float32(view["x_max"])
+    y_min = np.float32(view["y_min"])
+    y_max = np.float32(view["y_max"])
+
+    output_host = np.zeros((HEIGHT, WIDTH), dtype=np.int32)
+    output_gpu = cuda.mem_alloc(output_host.nbytes)
+
+    threads_per_block = (16, 16, 1)
+    blocks_x = (WIDTH + threads_per_block[0] - 1) // threads_per_block[0]
+    blocks_y = (HEIGHT + threads_per_block[1] - 1) // threads_per_block[1]
+
+    kernel(output_gpu,
+           np.int32(WIDTH),
+           np.int32(HEIGHT),
+           np.int32(max_iter),
+           x_min,
+           x_max,
+           y_min,
+           y_max,
+           block=threads_per_block,
+           grid=(blocks_x, blocks_y, 1))
+
+    cuda.memcpy_dtoh(output_host, output_gpu)
+    output_gpu.free()
+
+    result = output_host
+
+    # Logarithmic normalisation to 0-255
+    normalized = np.zeros_like(result, dtype=np.uint8)
+    in_set = result >= max_iter
+    escaped = ~in_set
+    normalized[in_set] = 0
+    if np.any(escaped):
+        log_iter = np.log(result[escaped] + 1)
+        log_max = np.log(max_iter + 1)
+        normalized[escaped] = (255 * log_iter / log_max).astype(np.uint8)
+
+    colored = apply_color_theme(normalized, theme)
+
+    filename = f"mandelbrot_{view['slug']}.png"
+    filepath = os.path.join(output_dir, filename)
+
+    if theme == 'grayscale':
+        img = Image.fromarray(colored, mode='L')
+    else:
+        img = Image.fromarray(colored, mode='RGB')
+
+    img.save(filepath)
+
+    print(f"  [{view['name']}]  →  {filepath}")
+    print(f"    {view['desc']}")
+    print(
+        f"    x=[{view['x_min']}, {view['x_max']}]  y=[{view['y_min']}, {view['y_max']}]"
+        f"  max_iter={max_iter}  theme={theme}")
+    print(f"    iter range: {result.min()}–{result.max()}")
+    print()
+
+    return filepath
 
 
 def main():
     args = parse_arguments()
 
+    if args.list_views:
+        print(f"{'Slug':<22} {'Name':<20} {'Theme':<10} Description")
+        print("─" * 90)
+        for v in FAMOUS_VIEWS:
+            print(
+                f"{v['slug']:<22} {v['name']:<20} {v['theme']:<10} {v['desc']}"
+            )
+        return
+
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Determine which views to render
+    if args.views:
+        views = resolve_views(args.views)
+    else:
+        views = FAMOUS_VIEWS  # all 10 by default
+
     WIDTH = args.width
     HEIGHT = args.height
-    MAX_ITER = args.max_iter
-    OUTPUT_FILE = args.output
-    THEME = args.theme
 
-    X_MIN, X_MAX = np.float32(-2.5), np.float32(1.0)
-    Y_MIN, Y_MAX = np.float32(-1.0), np.float32(1.0)
+    print(f"Rendering {len(views)} view(s) at {WIDTH}×{HEIGHT} px\n")
 
     mod = cuda.module_from_file("mandelbrot.ptx")
-    mandelbrot_kernel = mod.get_function("mandelbrot")
+    kernel = mod.get_function("mandelbrot")
 
-    # Allocate output buffer on GPU (int32 for raw iteration counts)
-    output_host = np.zeros((HEIGHT, WIDTH), dtype=np.int32)
-    output_gpu = cuda.mem_alloc(output_host.nbytes)
+    for view in views:
+        render_view(view, kernel, WIDTH, HEIGHT, args.max_iter, args.theme,
+                    args.output_dir)
 
-    # Configure grid and block dimensions
-    threads_per_block = (16, 16, 1)
-    blocks_x = (WIDTH + threads_per_block[0] - 1) // threads_per_block[0]
-    blocks_y = (HEIGHT + threads_per_block[1] - 1) // threads_per_block[1]
-    grid = (blocks_x, blocks_y, 1)
-
-    # Launch kernel
-    mandelbrot_kernel(output_gpu,
-                      np.int32(WIDTH),
-                      np.int32(HEIGHT),
-                      np.int32(MAX_ITER),
-                      X_MIN,
-                      X_MAX,
-                      Y_MIN,
-                      Y_MAX,
-                      block=threads_per_block,
-                      grid=grid)
-
-    # Copy result back to CPU
-    cuda.memcpy_dtoh(output_host, output_gpu)
-    result = output_host
-
-    # Normalize iteration counts to 0-255 range for color mapping
-    # Use a fixed scale for consistent colors regardless of max_iter
-    # Points in the set (iteration == max_iter) map to 0 (black)
-    # Use logarithmic scaling for better visual distribution
-    normalized = np.zeros_like(result, dtype=np.uint8)
-
-    # Points in the set (didn't escape)
-    in_set = result >= MAX_ITER
-    normalized[in_set] = 0
-
-    # Points that escaped - use log scaling for better color distribution
-    escaped = ~in_set
-    if np.any(escaped):
-        # Log scale: log(iteration + 1) / log(max_iter + 1)
-        log_iter = np.log(result[escaped] + 1)
-        log_max = np.log(MAX_ITER + 1)
-        normalized[escaped] = (255 * log_iter / log_max).astype(np.uint8)
-
-    # Apply color theme
-    colored_result = apply_color_theme(normalized, THEME)
-
-    # Save as PNG
-    if THEME == 'grayscale':
-        img = Image.fromarray(colored_result, mode='L')
-    else:
-        img = Image.fromarray(colored_result, mode='RGB')
-
-    img.save(OUTPUT_FILE)
-
-    print(f"Saved {OUTPUT_FILE}")
-    print(f"Image size: {img.size}")
-    print(f"Iteration range: {result.min()} to {result.max()}")
-    print(f"Normalized range: {normalized.min()} to {normalized.max()}")
+    print(f"Done. {len(views)} image(s) written to '{args.output_dir}/'.")
 
 
 if __name__ == "__main__":
