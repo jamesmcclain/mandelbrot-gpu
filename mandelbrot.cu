@@ -1,4 +1,4 @@
-// Compile with: nvcc -ptx mandelbrot.cu -o mandelbrot.ptx -arch=sm_86
+// nvcc -arch=sm_86 -ptx mandelbrot.cu -o mandelbrot.ptx
 
 extern "C" __global__
 void mandelbrot(int* output, int width, int height, int max_iter,
