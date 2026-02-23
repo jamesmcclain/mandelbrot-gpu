@@ -1,5 +1,7 @@
 # Mandelbrot GPU Renderer
 
+<img width="768" height="432" alt="image" src="https://github.com/user-attachments/assets/0f95519b-3654-4268-9613-ee4768a97d18" />
+
 A GPU-accelerated Mandelbrot set renderer that produces high-resolution PNG images using NVIDIA hardware. The compute kernel is written in both OpenCL and CUDA, and a Python driver script handles kernel loading, argument parsing, colorization, and image output via PyCUDA.
 
 ## How It Works
