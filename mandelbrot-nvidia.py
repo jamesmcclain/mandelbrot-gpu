@@ -8,6 +8,9 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 from PIL import Image
 
+# python3 mandelbrot-nvidia.py
+# python3 mandelbrot-nvidia.py --views seahorse_tail:-0.7613:-0.7257:0.1214:0.1414:2048:ice
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Famous Mandelbrot views
 #
