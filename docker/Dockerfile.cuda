@@ -1,0 +1,5 @@
+FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-devel
+
+RUN pip3 install pycuda==2026.1
+
+# docker build -t mandelbrot-cuda -f docker/Dockerfile.cuda .
