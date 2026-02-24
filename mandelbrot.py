@@ -8,6 +8,7 @@ from PIL import Image
 
 BACKENDS = {
     "cuda": ("mandelbrot_cuda", "mandelbrot.ptx"),
+    "opencl": ("mandelbrot_opencl", "mandelbrot.cl"),
     "amdhsa": ("mandelbrot_amdhsa", "mandelbrot.hsaco"),
 }
 
@@ -187,7 +188,7 @@ def parse_arguments():
     parser.add_argument('--max-iter', type=int, default=None, help='Override max iterations for all views')
     parser.add_argument('--theme',    type=str, default=None, choices=['grayscale', 'emacs', 'fire', 'ice', 'rainbow', 'classic'], help='Override color theme for all views')
     parser.add_argument('--output-dir', '-d', type=str, default='.', help='Directory to write output PNGs (default: current dir)')
-    parser.add_argument('--backend', '-b', type=str, default='cuda', choices=['cuda', 'amdhsa'], help='GPU backend to use (default: cuda)')
+    parser.add_argument('--backend', '-b', type=str, default='cuda', choices=['cuda', 'opencl', 'amdhsa'], help='GPU backend to use (default: cuda)')
     # yapf: enable
     return parser.parse_args()
 
