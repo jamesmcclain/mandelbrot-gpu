@@ -6,7 +6,10 @@ import os
 import numpy as np
 from PIL import Image
 
-import mandelbrot_cuda as backend
+BACKENDS = {
+    "cuda": ("mandelbrot_cuda", "mandelbrot.ptx"),
+    "amdhsa": ("mandelbrot_amdhsa", "mandelbrot.hsaco"),
+}
 
 # python3 mandelbrot.py
 # python3 mandelbrot.py --views seahorse_tail:-0.7613:-0.7257:0.1214:0.1414:2048:ice
@@ -184,6 +187,7 @@ def parse_arguments():
     parser.add_argument('--max-iter', type=int, default=None, help='Override max iterations for all views')
     parser.add_argument('--theme',    type=str, default=None, choices=['grayscale', 'emacs', 'fire', 'ice', 'rainbow', 'classic'], help='Override color theme for all views')
     parser.add_argument('--output-dir', '-d', type=str, default='.', help='Directory to write output PNGs (default: current dir)')
+    parser.add_argument('--backend', '-b', type=str, default='cuda', choices=['cuda', 'amdhsa'], help='GPU backend to use (default: cuda)')
     # yapf: enable
     return parser.parse_args()
 
@@ -333,7 +337,7 @@ def apply_color_theme(data, theme):
 
 
 def render_view(view, kernel, WIDTH, HEIGHT, max_iter_override, theme_override,
-                output_dir):
+                output_dir, backend):
     max_iter = max_iter_override if max_iter_override is not None else view[
         "max_iter"]
     theme = theme_override if theme_override is not None else view["theme"]
@@ -397,13 +401,17 @@ def main():
     WIDTH = args.width
     HEIGHT = args.height
 
+    import importlib
+    module_name, compiled_file = BACKENDS[args.backend]
+    backend = importlib.import_module(module_name)
+
     print(f"Rendering {len(views)} view(s) at {WIDTH}×{HEIGHT} px\n")
 
-    kernel = backend.load_kernel("mandelbrot.ptx")
+    kernel = backend.load_kernel(compiled_file)
 
     for view in views:
         render_view(view, kernel, WIDTH, HEIGHT, args.max_iter, args.theme,
-                    args.output_dir)
+                    args.output_dir, backend)
 
     print(f"Done. {len(views)} image(s) written to '{args.output_dir}/'.")
 
