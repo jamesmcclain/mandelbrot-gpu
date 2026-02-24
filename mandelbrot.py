@@ -4,12 +4,16 @@ import argparse
 import os
 
 import numpy as np
-import pycuda.autoinit
-import pycuda.driver as cuda
 from PIL import Image
 
-# python3 mandelbrot-nvidia.py
-# python3 mandelbrot-nvidia.py --views seahorse_tail:-0.7613:-0.7257:0.1214:0.1414:2048:ice
+BACKENDS = {
+    "cuda": ("mandelbrot_cuda", "mandelbrot.ptx"),
+    "opencl": ("mandelbrot_opencl", "mandelbrot.cl"),
+    "amdhsa": ("mandelbrot_amdhsa", "mandelbrot.hsaco"),
+}
+
+# python3 mandelbrot.py
+# python3 mandelbrot.py --views seahorse_tail:-0.7613:-0.7257:0.1214:0.1414:2048:ice
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Famous Mandelbrot views
@@ -171,7 +175,7 @@ def parse_arguments():
 
     # yapf: disable
     parser = argparse.ArgumentParser(
-        description='Generate famous Mandelbrot set images using CUDA',
+        description='Generate famous Mandelbrot set images using a GPU',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"Available view slugs:\n  {slug_list}\n\n"
                "Custom view format:  name:x_min:x_max:y_min:y_max[:max_iter[:theme]]\n"
@@ -184,6 +188,7 @@ def parse_arguments():
     parser.add_argument('--max-iter', type=int, default=None, help='Override max iterations for all views')
     parser.add_argument('--theme',    type=str, default=None, choices=['grayscale', 'emacs', 'fire', 'ice', 'rainbow', 'classic'], help='Override color theme for all views')
     parser.add_argument('--output-dir', '-d', type=str, default='.', help='Directory to write output PNGs (default: current dir)')
+    parser.add_argument('--backend', '-b', type=str, default='cuda', choices=['cuda', 'opencl', 'amdhsa'], help='GPU backend to use (default: cuda)')
     # yapf: enable
     return parser.parse_args()
 
@@ -333,38 +338,13 @@ def apply_color_theme(data, theme):
 
 
 def render_view(view, kernel, WIDTH, HEIGHT, max_iter_override, theme_override,
-                output_dir):
+                output_dir, backend):
     max_iter = max_iter_override if max_iter_override is not None else view[
         "max_iter"]
     theme = theme_override if theme_override is not None else view["theme"]
 
-    x_min = np.float32(view["x_min"])
-    x_max = np.float32(view["x_max"])
-    y_min = np.float32(view["y_min"])
-    y_max = np.float32(view["y_max"])
-
-    output_host = np.zeros((HEIGHT, WIDTH), dtype=np.int32)
-    output_gpu = cuda.mem_alloc(output_host.nbytes)
-
-    threads_per_block = (16, 16, 1)
-    blocks_x = (WIDTH + threads_per_block[0] - 1) // threads_per_block[0]
-    blocks_y = (HEIGHT + threads_per_block[1] - 1) // threads_per_block[1]
-
-    kernel(output_gpu,
-           np.int32(WIDTH),
-           np.int32(HEIGHT),
-           np.int32(max_iter),
-           x_min,
-           x_max,
-           y_min,
-           y_max,
-           block=threads_per_block,
-           grid=(blocks_x, blocks_y, 1))
-
-    cuda.memcpy_dtoh(output_host, output_gpu)
-    output_gpu.free()
-
-    result = output_host
+    result = backend.run_kernel(kernel, WIDTH, HEIGHT, max_iter, view["x_min"],
+                                view["x_max"], view["y_min"], view["y_max"])
 
     # Logarithmic normalisation to 0-255
     normalized = np.zeros_like(result, dtype=np.uint8)
@@ -422,14 +402,17 @@ def main():
     WIDTH = args.width
     HEIGHT = args.height
 
+    import importlib
+    module_name, compiled_file = BACKENDS[args.backend]
+    backend = importlib.import_module(module_name)
+
     print(f"Rendering {len(views)} view(s) at {WIDTH}×{HEIGHT} px\n")
 
-    mod = cuda.module_from_file("mandelbrot.ptx")
-    kernel = mod.get_function("mandelbrot")
+    kernel = backend.load_kernel(compiled_file)
 
     for view in views:
         render_view(view, kernel, WIDTH, HEIGHT, args.max_iter, args.theme,
-                    args.output_dir)
+                    args.output_dir, backend)
 
     print(f"Done. {len(views)} image(s) written to '{args.output_dir}/'.")
 

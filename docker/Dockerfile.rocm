@@ -1,0 +1,5 @@
+FROM  rocm/dev-ubuntu-22.04:6.2-complete
+
+RUN pip3 install pyopencl==2026.1.2 pillow==12.1.1
+
+# docker build -t mandelbrot-rocm -f docker/Dockerfile.amd .
