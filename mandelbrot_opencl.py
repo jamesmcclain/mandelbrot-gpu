@@ -9,7 +9,7 @@ def load_kernel(source_file="mandelbrot.cl"):
     with open(source_file, "r") as f:
         source = f.read()
 
-    program = cl.Program(ctx, source).build(options="-cl-std=CL2.0 -O3")
+    program = cl.Program(ctx, source).build(options="-cl-std=CL2.0")
     kernel = program.mandelbrot
 
     return (ctx, queue, kernel)

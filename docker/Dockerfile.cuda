@@ -1,5 +1,11 @@
 FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-devel
 
-RUN pip3 install pycuda==2026.1
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+    apt update -y && apt install -y ocl-icd-libopencl1 opencl-headers clinfo
+
+RUN mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install pycuda==2026.1 pyopencl==2026.1.2
 
 # docker build -t mandelbrot-cuda -f docker/Dockerfile.cuda .
