@@ -27,16 +27,7 @@ def run_kernel(kernels, WIDTH, HEIGHT, max_iter, x_min, x_max, y_min, y_max, pre
     kernel = kernels[precision]
     real_dtype = np.float32 if precision == "float32" else np.float64
 
-    kernel(output_gpu,
-           np.int32(WIDTH),
-           np.int32(HEIGHT),
-           np.int32(max_iter),
-           real_dtype(x_min),
-           real_dtype(x_max),
-           real_dtype(y_min),
-           real_dtype(y_max),
-           block=threads_per_block,
-           grid=(blocks_x, blocks_y, 1))
+    kernel(output_gpu, np.int32(WIDTH), np.int32(HEIGHT), np.int32(max_iter), real_dtype(x_min), real_dtype(x_max), real_dtype(y_min), real_dtype(y_max), block=threads_per_block, grid=(blocks_x, blocks_y, 1))
 
     cuda.memcpy_dtoh(output_host, output_gpu)
     output_gpu.free()
