@@ -267,12 +267,9 @@ def apply_color_theme(data, theme):
         q = normalized * (1 - f)
         t = normalized * f
         v = normalized
-        rgb[:, :, 0] = np.where(h_i == 0, v * 255, np.where(h_i == 1, q * 255, np.where(h_i == 2, p * 255, np.where(h_i == 3, p * 255, np.where(h_i == 4, t * 255,
-                                                                                                                                                v * 255))))).astype(np.uint8)
-        rgb[:, :, 1] = np.where(h_i == 0, t * 255, np.where(h_i == 1, v * 255, np.where(h_i == 2, v * 255, np.where(h_i == 3, q * 255, np.where(h_i == 4, p * 255,
-                                                                                                                                                p * 255))))).astype(np.uint8)
-        rgb[:, :, 2] = np.where(h_i == 0, p * 255, np.where(h_i == 1, p * 255, np.where(h_i == 2, t * 255, np.where(h_i == 3, v * 255, np.where(h_i == 4, v * 255,
-                                                                                                                                                q * 255))))).astype(np.uint8)
+        rgb[:, :, 0] = np.where(h_i == 0, v * 255, np.where(h_i == 1, q * 255, np.where(h_i == 2, p * 255, np.where(h_i == 3, p * 255, np.where(h_i == 4, t * 255, v * 255))))).astype(np.uint8)
+        rgb[:, :, 1] = np.where(h_i == 0, t * 255, np.where(h_i == 1, v * 255, np.where(h_i == 2, v * 255, np.where(h_i == 3, q * 255, np.where(h_i == 4, p * 255, p * 255))))).astype(np.uint8)
+        rgb[:, :, 2] = np.where(h_i == 0, p * 255, np.where(h_i == 1, p * 255, np.where(h_i == 2, t * 255, np.where(h_i == 3, v * 255, np.where(h_i == 4, v * 255, q * 255))))).astype(np.uint8)
 
     elif theme == 'classic':
         rgb[:, :, 0] = np.minimum(255, normalized * 400).astype(np.uint8)
@@ -319,8 +316,7 @@ def render_view(view, kernel, WIDTH, HEIGHT, max_iter_override, theme_override, 
 
     print(f"  [{view['name']}]  →  {filepath}")
     print(f"    {view['desc']}")
-    print(f"    x=[{view['x_min']}, {view['x_max']}]  y=[{view['y_min']}, {view['y_max']}]"
-          f"  max_iter={max_iter}  theme={theme}")
+    print(f"    x=[{view['x_min']}, {view['x_max']}]  y=[{view['y_min']}, {view['y_max']}]  max_iter={max_iter}  theme={theme}")
     print(f"    iter range: {result.min()}–{result.max()}")
     print()
 

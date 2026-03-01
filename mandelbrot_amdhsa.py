@@ -41,8 +41,7 @@ def run_kernel(handle, WIDTH, HEIGHT, max_iter, x_min, x_max, y_min, y_max, prec
     kernel = kernels[precision]
     real_dtype = np.float32 if precision == "float32" else np.float64
 
-    kernel(queue, global_size, local_size, output_buf, np.int32(WIDTH), np.int32(HEIGHT), np.int32(max_iter), real_dtype(x_min), real_dtype(x_max), real_dtype(y_min),
-           real_dtype(y_max))
+    kernel(queue, global_size, local_size, output_buf, np.int32(WIDTH), np.int32(HEIGHT), np.int32(max_iter), real_dtype(x_min), real_dtype(x_max), real_dtype(y_min), real_dtype(y_max))
 
     cl.enqueue_copy(queue, output_host, output_buf)
     queue.finish()
