@@ -33,48 +33,29 @@ FAMOUS_VIEWS = [
         "y_max": 1.25,
         "max_iter": 512,
         "theme": "classic",
-        "desc":
-        "The full Mandelbrot set — the iconic cardioid and primary bulb",
+        "desc": "The full Mandelbrot set — the iconic cardioid and primary bulb",
     },
     {
-        "name":
-        "Seahorse Valley",
-        "slug":
-        "seahorse_valley",
-        "x_min":
-        -0.7828,
-        "x_max":
-        -0.6832,
-        "y_min":
-        0.092,
-        "y_max":
-        0.148,
-        "max_iter":
-        1024,
-        "theme":
-        "ice",
-        "desc":
-        "The classic 'Seahorse Valley' between the main cardioid and period-2 bulb",
+        "name": "Seahorse Valley",
+        "slug": "seahorse_valley",
+        "x_min": -0.7828,
+        "x_max": -0.6832,
+        "y_min": 0.092,
+        "y_max": 0.148,
+        "max_iter": 1024,
+        "theme": "ice",
+        "desc": "The classic 'Seahorse Valley' between the main cardioid and period-2 bulb",
     },
     {
-        "name":
-        "Elephant Valley",
-        "slug":
-        "elephant_valley",
-        "x_min":
-        0.1994,
-        "x_max":
-        0.4306,
-        "y_min":
-        -0.065,
-        "y_max":
-        0.065,
-        "max_iter":
-        1024,
-        "theme":
-        "fire",
-        "desc":
-        "The 'Elephant Valley' on the right side — elephants marching in a row",
+        "name": "Elephant Valley",
+        "slug": "elephant_valley",
+        "x_min": 0.1994,
+        "x_max": 0.4306,
+        "y_min": -0.065,
+        "y_max": 0.065,
+        "max_iter": 1024,
+        "theme": "fire",
+        "desc": "The 'Elephant Valley' on the right side — elephants marching in a row",
     },
     {
         "name": "Double Spiral",
@@ -110,24 +91,15 @@ FAMOUS_VIEWS = [
         "desc": "A triple spiral near the upper filaments",
     },
     {
-        "name":
-        "Mini Mandelbrot",
-        "slug":
-        "mini_mandelbrot",
-        "x_min":
-        -1.8082,
-        "x_max":
-        -1.7548,
-        "y_min":
-        -0.0150,
-        "y_max":
-        0.0150,
-        "max_iter":
-        2048,
-        "theme":
-        "emacs",
-        "desc":
-        "A self-similar 'mini-brot' on the real axis to the left of the main set",
+        "name": "Mini Mandelbrot",
+        "slug": "mini_mandelbrot",
+        "x_min": -1.8082,
+        "x_max": -1.7548,
+        "y_min": -0.0150,
+        "y_max": 0.0150,
+        "max_iter": 2048,
+        "theme": "emacs",
+        "desc": "A self-similar 'mini-brot' on the real axis to the left of the main set",
     },
     {
         "name": "Feather",
@@ -189,6 +161,7 @@ def parse_arguments():
     parser.add_argument('--theme',    type=str, default=None, choices=['grayscale', 'emacs', 'fire', 'ice', 'rainbow', 'classic'], help='Override color theme for all views')
     parser.add_argument('--output-dir', '-d', type=str, default='.', help='Directory to write output PNGs (default: current dir)')
     parser.add_argument('--backend', '-b', type=str, default='cuda', choices=['cuda', 'opencl', 'amdhsa'], help='GPU backend to use (default: cuda)')
+    parser.add_argument('--precision', type=str, default='auto', choices=['single', 'double', 'auto'], help='Floating-point precision to use: single, double, or auto (default: auto)')
     # yapf: enable
     return parser.parse_args()
 
@@ -197,9 +170,7 @@ def parse_custom_view(spec):
     """Parse a custom view spec: name:x_min:x_max:y_min:y_max[:max_iter[:theme]]"""
     parts = spec.split(':')
     if len(parts) < 5:
-        raise argparse.ArgumentTypeError(
-            f"Custom view '{spec}' needs at least name:x_min:x_max:y_min:y_max"
-        )
+        raise argparse.ArgumentTypeError(f"Custom view '{spec}' needs at least name:x_min:x_max:y_min:y_max")
     name = parts[0]
     x_min = float(parts[1])
     x_max = float(parts[2])
@@ -271,12 +242,9 @@ def apply_color_theme(data, theme):
             mask = (normalized >= pos1) & (normalized < pos2)
             if np.any(mask):
                 t = (normalized[mask] - pos1) / (pos2 - pos1)
-                rgb[mask, 0] = (color1[0] + t *
-                                (color2[0] - color1[0])).astype(np.uint8)
-                rgb[mask, 1] = (color1[1] + t *
-                                (color2[1] - color1[1])).astype(np.uint8)
-                rgb[mask, 2] = (color1[2] + t *
-                                (color2[2] - color1[2])).astype(np.uint8)
+                rgb[mask, 0] = (color1[0] + t * (color2[0] - color1[0])).astype(np.uint8)
+                rgb[mask, 1] = (color1[1] + t * (color2[1] - color1[1])).astype(np.uint8)
+                rgb[mask, 2] = (color1[2] + t * (color2[2] - color1[2])).astype(np.uint8)
         mask = normalized >= 1.0
         if np.any(mask):
             rgb[mask] = stops[-1][1]
@@ -284,14 +252,12 @@ def apply_color_theme(data, theme):
     elif theme == 'fire':
         rgb[:, :, 0] = np.minimum(255, normalized * 512).astype(np.uint8)
         rgb[:, :, 1] = np.maximum(0, (normalized - 0.5) * 512).astype(np.uint8)
-        rgb[:, :, 2] = np.maximum(0,
-                                  (normalized - 0.75) * 1024).astype(np.uint8)
+        rgb[:, :, 2] = np.maximum(0, (normalized - 0.75) * 1024).astype(np.uint8)
 
     elif theme == 'ice':
         rgb[:, :, 2] = np.minimum(255, normalized * 512).astype(np.uint8)
         rgb[:, :, 1] = np.maximum(0, (normalized - 0.5) * 512).astype(np.uint8)
-        rgb[:, :, 0] = np.maximum(0,
-                                  (normalized - 0.75) * 1024).astype(np.uint8)
+        rgb[:, :, 0] = np.maximum(0, (normalized - 0.75) * 1024).astype(np.uint8)
 
     elif theme == 'rainbow':
         hue = normalized * 6.0
@@ -301,33 +267,12 @@ def apply_color_theme(data, theme):
         q = normalized * (1 - f)
         t = normalized * f
         v = normalized
-        rgb[:, :, 0] = np.where(
-            h_i == 0, v * 255,
-            np.where(
-                h_i == 1, q * 255,
-                np.where(
-                    h_i == 2, p * 255,
-                    np.where(h_i == 3, p * 255,
-                             np.where(h_i == 4, t * 255,
-                                      v * 255))))).astype(np.uint8)
-        rgb[:, :, 1] = np.where(
-            h_i == 0, t * 255,
-            np.where(
-                h_i == 1, v * 255,
-                np.where(
-                    h_i == 2, v * 255,
-                    np.where(h_i == 3, q * 255,
-                             np.where(h_i == 4, p * 255,
-                                      p * 255))))).astype(np.uint8)
-        rgb[:, :, 2] = np.where(
-            h_i == 0, p * 255,
-            np.where(
-                h_i == 1, p * 255,
-                np.where(
-                    h_i == 2, t * 255,
-                    np.where(h_i == 3, v * 255,
-                             np.where(h_i == 4, v * 255,
-                                      q * 255))))).astype(np.uint8)
+        rgb[:, :, 0] = np.where(h_i == 0, v * 255, np.where(h_i == 1, q * 255, np.where(h_i == 2, p * 255, np.where(h_i == 3, p * 255, np.where(h_i == 4, t * 255,
+                                                                                                                                                v * 255))))).astype(np.uint8)
+        rgb[:, :, 1] = np.where(h_i == 0, t * 255, np.where(h_i == 1, v * 255, np.where(h_i == 2, v * 255, np.where(h_i == 3, q * 255, np.where(h_i == 4, p * 255,
+                                                                                                                                                p * 255))))).astype(np.uint8)
+        rgb[:, :, 2] = np.where(h_i == 0, p * 255, np.where(h_i == 1, p * 255, np.where(h_i == 2, t * 255, np.where(h_i == 3, v * 255, np.where(h_i == 4, v * 255,
+                                                                                                                                                q * 255))))).astype(np.uint8)
 
     elif theme == 'classic':
         rgb[:, :, 0] = np.minimum(255, normalized * 400).astype(np.uint8)
@@ -337,14 +282,18 @@ def apply_color_theme(data, theme):
     return rgb
 
 
-def render_view(view, kernel, WIDTH, HEIGHT, max_iter_override, theme_override,
-                output_dir, backend):
-    max_iter = max_iter_override if max_iter_override is not None else view[
-        "max_iter"]
+def render_view(view, kernel, WIDTH, HEIGHT, max_iter_override, theme_override, output_dir, backend, precision):
+    max_iter = max_iter_override if max_iter_override is not None else view["max_iter"]
     theme = theme_override if theme_override is not None else view["theme"]
 
-    result = backend.run_kernel(kernel, WIDTH, HEIGHT, max_iter, view["x_min"],
-                                view["x_max"], view["y_min"], view["y_max"])
+    precision_map = {
+        'single': 'float32',
+        'double': 'float64',
+        'auto': 'auto',
+    }
+    runtime_precision = precision_map[precision]
+
+    result = backend.run_kernel(kernel, WIDTH, HEIGHT, max_iter, view["x_min"], view["x_max"], view["y_min"], view["y_max"], precision=runtime_precision)
 
     # Logarithmic normalisation to 0-255
     normalized = np.zeros_like(result, dtype=np.uint8)
@@ -370,9 +319,8 @@ def render_view(view, kernel, WIDTH, HEIGHT, max_iter_override, theme_override,
 
     print(f"  [{view['name']}]  →  {filepath}")
     print(f"    {view['desc']}")
-    print(
-        f"    x=[{view['x_min']}, {view['x_max']}]  y=[{view['y_min']}, {view['y_max']}]"
-        f"  max_iter={max_iter}  theme={theme}")
+    print(f"    x=[{view['x_min']}, {view['x_max']}]  y=[{view['y_min']}, {view['y_max']}]"
+          f"  max_iter={max_iter}  theme={theme}")
     print(f"    iter range: {result.min()}–{result.max()}")
     print()
 
@@ -386,9 +334,7 @@ def main():
         print(f"{'Slug':<22} {'Name':<20} {'Theme':<10} Description")
         print("─" * 90)
         for v in FAMOUS_VIEWS:
-            print(
-                f"{v['slug']:<22} {v['name']:<20} {v['theme']:<10} {v['desc']}"
-            )
+            print(f"{v['slug']:<22} {v['name']:<20} {v['theme']:<10} {v['desc']}")
         return
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -411,8 +357,7 @@ def main():
     kernel = backend.load_kernel(compiled_file)
 
     for view in views:
-        render_view(view, kernel, WIDTH, HEIGHT, args.max_iter, args.theme,
-                    args.output_dir, backend)
+        render_view(view, kernel, WIDTH, HEIGHT, args.max_iter, args.theme, args.output_dir, backend, args.precision)
 
     print(f"Done. {len(views)} image(s) written to '{args.output_dir}/'.")
 
