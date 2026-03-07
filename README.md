@@ -45,6 +45,43 @@ Output PNGs are written to the current directory by default; use `--output-dir` 
 | `spiral_tendril` | Spiral Tendril | fire | 1024 | Spiralling tendrils on the tip of the left antenna |
 | `quad_spiral` | Quad Spiral | rainbow | 2048 | A four-armed spiral galaxy in the upper filaments |
 
+## Animation
+
+`animation.py` renders a smooth zoom animation between any two views and encodes it directly into a video file via an imageio/FFmpeg pipeline — no per-frame disk I/O.
+
+```bash
+# Zoom from the full overview into Seahorse Valley — 120 frames at 240p:
+python animation.py --start overview --end seahorse_valley \
+        --frames 120 --resolution 240p --theme ice
+
+# Custom start → end, lossless FFV1 codec, 30 fps at 1080p:
+python animation.py \
+    --start "custom:-2.5:1.0:-1.25:1.25:512:classic" \
+    --end   "custom:-0.7828:-0.6832:0.092:0.148:1024:ice" \
+    --frames 300 --fps 30 --resolution 1080p \
+    --codec ffv1 --output zoom.mkv
+```
+
+**Key options:**
+
+| Option | Default | Description |
+|---|---|---|
+| `--start` / `-s` | *(required)* | Starting view — built-in slug or custom spec |
+| `--end` / `-e` | *(required)* | Ending view — built-in slug or custom spec |
+| `--frames` / `-n` | `60` | Total number of frames |
+| `--fps` | `30` | Frames per second |
+| `--resolution` / `-r` | `1440p` | Output resolution — preset or `WxH` (e.g. `1280x720`) |
+| `--theme` / `-t` | *(start-view theme)* | Colour theme; overrides the start-view default |
+| `--backend` / `-b` | `cuda` | GPU backend (`cuda`, `opencl`, `amdhsa`) |
+| `--precision` | `auto` | Floating-point precision (`single`, `double`, `auto`) |
+| `--codec` / `-c` | `h264` | Video codec: `h264` or `ffv1` (lossless, requires `.mkv`) |
+| `--lossless` | off | Force lossless h264 (CRF 0); FFV1 is always lossless |
+| `--output` / `-o` | `animation.mp4` | Output video file path |
+
+**Resolution presets:** `240p`, `360p`, `480p`, `720p`, `1080p`, `1440p`, `4k`
+
+Both `--start` and `--end` accept the same built-in view slugs as `mandelbrot.py` (see Built-in Views below) as well as the same custom view spec format (`name:x_min:x_max:y_min:y_max[:max_iter[:theme]]`). Each frame's viewport is linearly interpolated between the start and end coordinates; `max_iter` is also interpolated across the sequence.
+
 ## Floating-Point Precision
 
 The renderer supports both `float32` and `float64` kernels, selected via `--precision`:
@@ -117,6 +154,7 @@ bash scripts/shell-rocm.sh   # mounts /dev/kfd and /dev/dri, sets HSA_OVERRIDE_G
 
 ```
 mandelbrot.py               # Entry point: argument parsing, view resolution, image saving
+animation.py                # Entry point: zoom animation renderer; streams frames into FFmpeg
 mandelbrot_precision.py     # Auto precision selection: float32 vs float64 via orbit sampling
 mandelbrot_cuda.py          # PyCUDA backend: loads .ptx, dispatches kernel
 mandelbrot_opencl.py        # PyOpenCL backend: compiles .cl at runtime, dispatches kernel
@@ -138,6 +176,10 @@ docs/
 ```
 
 ## Dependencies
+
+**Animation (`animation.py`) also requires:**
+- `imageio[ffmpeg]` and `tqdm`
+- FFmpeg accessible on `PATH` (used by imageio as the video encoding backend)
 
 **NVIDIA path:**
 - Python 3 with `numpy`, `Pillow`, and `pycuda`
