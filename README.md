@@ -17,11 +17,11 @@ The `cuda` backend is the default. The `opencl` backend is the recommended path 
 ## Rendering
 
 ```bash
-python mandelbrot.py                                     # render all 10 built-in views at 4K (CUDA)
-python mandelbrot.py --backend opencl                    # same, using OpenCL (AMD or NVIDIA)
-python mandelbrot.py --views seahorse_valley             # single named view
-python mandelbrot.py --width 1920 --height 1080 --theme fire
-python mandelbrot.py --views "myspot:-0.76:-0.70:0.09:0.15:1024:ice"  # custom view
+python3 mandelbrot.py                                     # render all 10 built-in views at 4K (CUDA)
+python3 mandelbrot.py --backend opencl                    # same, using OpenCL (AMD or NVIDIA)
+python3 mandelbrot.py --views seahorse_valley             # single named view
+python3 mandelbrot.py --width 1920 --height 1080 --theme fire
+python3 mandelbrot.py --views "myspot:-0.76:-0.70:0.09:0.15:1024:ice"  # custom view
 ```
 
 Pass `--list-views` to print all built-in views (Overview, Seahorse Valley, Elephant Valley, Double Spiral, etc.) with their default coordinates, iteration counts, and themes.
@@ -50,9 +50,9 @@ Output PNGs are written to the current directory by default; use `--output-dir` 
 The renderer supports both `float32` and `float64` kernels, selected via `--precision`:
 
 ```bash
-python mandelbrot.py --precision single   # force float32 (fastest)
-python mandelbrot.py --precision double   # force float64 (most accurate)
-python mandelbrot.py --precision auto     # automatic selection (default)
+python3 mandelbrot.py --precision single   # force float32 (fastest)
+python3 mandelbrot.py --precision double   # force float64 (most accurate)
+python3 mandelbrot.py --precision auto     # automatic selection (default)
 ```
 
 In `auto` mode, `mandelbrot_precision.py` inspects the render parameters and selects the appropriate precision automatically. It upgrades to `float64` when the pixel spacing approaches the float32 ULP scale, or when sample orbit comparisons between float32 and float64 diverge — which typically occurs at deep zoom levels or with high iteration counts near the set boundary. For typical views at 4K, `float32` is usually sufficient.
@@ -66,7 +66,7 @@ name:x_min:x_max:y_min:y_max[:max_iter[:theme]]
 ```
 
 ```bash
-python mandelbrot.py --views "myview:-0.76:-0.70:0.09:0.15:1024:ice"
+python3 mandelbrot.py --views "myview:-0.76:-0.70:0.09:0.15:1024:ice"
 ```
 
 Fields after `y_max` are optional and default to `max_iter=1024` and `theme=classic`.
@@ -135,6 +135,9 @@ docker/
 docs/
   clang-opencl.md           # Building Clang/libclc from source
   amd-opencl-porting.md     # NVIDIA → AMD porting notes
+pascal/
+  mandelbrot.pas            # CUDA kernel written in [`pascal-1981`](https://github.com/jamesmcclain/pascal-1981)
+  mandelbrot.inc            # `pascal-1981` header file
 ```
 
 ## Dependencies
