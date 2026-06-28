@@ -16,6 +16,28 @@ Prerequisites:
 - `libpng` development headers/library
 - Python with whatever `pascal-1981` itself needs (`llvmlite`, etc.)
 
+## Install the compiler into your venv
+
+If you want to build with an installed toolchain instead of `PYTHONPATH=../pascal-1981/src`, install the sibling checkout into the active virtual environment:
+
+```bash
+python3 -m pip install ../pascal-1981
+```
+
+Then a manual rebuild looks like this:
+
+```bash
+cd pascal
+make clean
+mkdir -p build
+python3 -m pascal1981 --dialect extended -f wide-integers mandelbrot_host.pas build/host.ll
+python3 -m pascal1981 --dialect extended -f wide-integers mandelbrot.pas build/dev.ll
+clang build/host.ll build/dev.ll png_helper.c ../pascal-1981/runtime/build/libpascalrt.a -lpng -lm -o mandelbrot_host
+./mandelbrot_host pip_build.png 1 d 0
+```
+
+That was verified in this repository's venv: the installed `python3 -m pascal1981` successfully rebuilt the example and wrote a valid PNG.
+
 ## Run on the CPU-device shim
 
 ```bash
@@ -23,6 +45,8 @@ cd pascal
 make runtime          # one-time: builds ../pascal-1981/runtime/build/libpascalrt.a
 make run              # DEVICE=cpu by default
 ```
+
+The Makefile path still uses the sibling checkout directly. The installed-toolchain flow above is mainly useful as a packaging/smoke test.
 
 This needs no GPU and no NVIDIA toolchain. The CPU runtime shim emulates the full launch geometry, so the unchanged `DEVICE` kernel runs end-to-end through the Pascal host path.
 
