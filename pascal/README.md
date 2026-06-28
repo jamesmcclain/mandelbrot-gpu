@@ -5,7 +5,7 @@ This directory now contains a full Pascal-hosted Mandelbrot renderer for this re
 What changed:
 
 - `mandelbrot.pas` / `mandelbrot.inc` remain the unchanged device kernels
-- `mandelbrot_host.pas` is a Pascal host program that allocates device memory, launches the kernel, copies the iteration buffer back, and writes a PNG
+- `mandelbrot_host.pas` is the Pascal host source that allocates device memory, launches the kernel, copies the iteration buffer back, and writes a PNG
 - `png_helper.c` is a tiny libpng helper used through Pascal C-FFI
 - `Makefile` builds the whole thing against a local `pascal-1981` checkout plus its runtime archive
 
@@ -33,8 +33,8 @@ make clean
 mkdir -p build
 python3 -m pascal1981 --dialect extended -f wide-integers mandelbrot_host.pas build/host.ll
 python3 -m pascal1981 --dialect extended -f wide-integers mandelbrot.pas build/dev.ll
-clang build/host.ll build/dev.ll png_helper.c /path/to/libpascalrt.a -lpng -lm -o mandelbrot_host
-./mandelbrot_host pip_build.png 1 d 0
+clang build/host.ll build/dev.ll png_helper.c /path/to/libpascalrt.a -lpng -lm -o mandelbrot
+./mandelbrot pip_build.png 1 d 0
 ```
 
 The only remaining non-`pip` dependency in that manual path is the Pascal runtime archive (`libpascalrt.a`), which must come from a built `pascal-1981` checkout.
@@ -46,7 +46,7 @@ This installed-toolchain flow was verified in this repository's venv: `python3 -
 ```bash
 cd pascal
 make runtime
-make run              # DEVICE=cpu by default
+make run              # DEVICE=cpu by default; writes mandelbrot.png
 ```
 
 This needs no GPU and no NVIDIA toolchain. The CPU runtime shim emulates the full launch geometry, so the unchanged `DEVICE` kernel runs end-to-end through the Pascal host path.
@@ -56,7 +56,7 @@ This needs no GPU and no NVIDIA toolchain. The CPU runtime shim emulates the ful
 The host program uses the vintage `pascal-1981` program-parameter model, so its command line is **positional**:
 
 ```text
-mandelbrot_host <outfile> <view> <prec> <theme>
+mandelbrot <outfile> <view> <prec> <theme>
 ```
 
 Arguments:
@@ -81,7 +81,17 @@ Arguments:
 Example:
 
 ```bash
-./mandelbrot_host demo.png 2 s 1
+./mandelbrot demo.png 2 s 1
+```
+
+The `make run` target supplies default positional arguments automatically:
+
+- `mandelbrot.png 1 d 0`
+
+You can override them if you want:
+
+```bash
+make run RUN_ARGS="demo.png 4 s 3"
 ```
 
 That writes `demo.png` using:
@@ -94,13 +104,32 @@ If one or more trailing arguments are omitted, the Pascal runtime prompts for th
 
 ## Optional CUDA build
 
-If you have CUDA headers, `-lcuda`, and an NVIDIA device, the same host program can be built against the CUDA runtime shim:
+The Makefile supports a CUDA path as well as the default CPU-device shim.
+
+On a CUDA-capable machine, the intended flow is:
 
 ```bash
 cd pascal
 make runtime-cuda
 make DEVICE=cuda run
 ```
+
+Best-effort reconstruction of what that does, based on the `pascal-1981` examples:
+
+- compiles `mandelbrot.pas` to PTX with `--target ptx --sm <arch>`
+- packages the PTX text into a `__pas_device_ptx` blob object
+- compiles the host with `--device-backend cuda`
+- links the host, PTX blob, `png_helper.c`, the CUDA runtime shim archive, and `-lcuda`
+- runs the resulting `./mandelbrot` binary
+
+Expected prerequisites for that path are:
+
+- a built CUDA runtime archive from the local `pascal-1981` checkout (`make runtime-cuda`)
+- CUDA headers / driver library availability for `-lcuda`
+- an NVIDIA GPU and working driver
+- `llvmlite` with NVPTX support so `pascal1981 --target ptx` can emit PTX
+
+This CUDA branch is wired in the Makefile, but it was **not executed in this VM** because this environment has no GPU and no full NVIDIA toolchain.
 
 ## Current defaults
 

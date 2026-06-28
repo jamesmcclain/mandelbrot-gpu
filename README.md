@@ -151,11 +151,11 @@ There is now a full Pascal-hosted path in [`pascal/`](pascal/): the existing Pas
 ```bash
 cd pascal
 make runtime
-make run          # DEVICE=cpu by default; no GPU required
-./mandelbrot_host demo.png 2 s 1
+make run          # DEVICE=cpu by default; no GPU required; writes mandelbrot.png
+./mandelbrot demo.png 2 s 1
 ```
 
-The Pascal host binary takes positional arguments:
+The Pascal host binary (`./mandelbrot`) takes positional arguments:
 
 - output filename
 - view number (`1..4`)
@@ -164,7 +164,9 @@ The Pascal host binary takes positional arguments:
 
 You can also install `pascal-1981` into your active venv from disk or from GitHub, then rebuild with the installed `python3 -m pascal1981`; see [`pascal/README.md`](pascal/README.md).
 
-That build targets the `pascal-1981` CPU-device shim, which emulates the launch geometry on the host CPU. The result is an end-to-end proof of the Pascal renderer without needing NVIDIA hardware or the full CUDA toolchain.
+The Pascal Makefile also has a `DEVICE=cuda` branch. On a CUDA-capable machine it is intended to compile the Pascal device unit to PTX, package the PTX as a blob, build the host with `--device-backend cuda`, and link against the CUDA driver shim. That path is documented in [`pascal/README.md`](pascal/README.md) on a best-effort basis from the upstream `pascal-1981` examples.
+
+That build targets the `pascal-1981` CPU-device shim by default, which emulates the launch geometry on the host CPU. The result is an end-to-end proof of the Pascal renderer without needing NVIDIA hardware or the full CUDA toolchain.
 
 ## Dependencies
 

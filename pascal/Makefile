@@ -16,14 +16,15 @@ FEATURES     := --dialect extended -f wide-integers
 HOST_SRC    := mandelbrot_host.pas
 DEVICE_UNIT := mandelbrot.pas
 PNG_HELPER  := png_helper.c
-EXE         := mandelbrot_host
+EXE         := mandelbrot
+RUN_ARGS    ?= mandelbrot.png 1 d 0
 
 .PHONY: all run clean runtime runtime-cuda
 
 all: $(EXE)
 
 run: $(EXE)
-	./$(EXE)
+	./$(EXE) $(RUN_ARGS)
 
 clean:
 	rm -rf $(BUILD) $(EXE) mandelbrot_pascal_f32.png mandelbrot_pascal_f64.png

@@ -5,4 +5,4 @@ __pycache__/
 *.mp4
 *.zip
 pascal/build/
-pascal/mandelbrot_host
+pascal/mandelbrot
