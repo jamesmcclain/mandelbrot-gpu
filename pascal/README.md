@@ -7,11 +7,11 @@ What changed:
 - `mandelbrot.pas` / `mandelbrot.inc` remain the unchanged device kernels
 - `mandelbrot_host.pas` is a Pascal host program that allocates device memory, launches the kernel, copies the iteration buffer back, and writes a PNG
 - `png_helper.c` is a tiny libpng helper used through Pascal C-FFI
-- `Makefile` builds the whole thing against `../pascal-1981`
+- `Makefile` builds the whole thing against a local `pascal-1981` checkout plus its runtime archive
 
 Prerequisites:
 
-- a sibling checkout at `../pascal-1981`
+- a local `pascal-1981` checkout with its runtime built
 - `clang`
 - `libpng` development headers/library
 - Python with whatever `pascal-1981` itself needs (`llvmlite`, etc.)
@@ -45,26 +45,38 @@ This installed-toolchain flow was verified in this repository's venv: `python3 -
 
 ```bash
 cd pascal
-make runtime          # one-time: builds ../pascal-1981/runtime/build/libpascalrt.a
+make runtime
 make run              # DEVICE=cpu by default
 ```
 
-The Makefile path still uses the sibling checkout directly. The installed-toolchain flow above is mainly useful as a packaging/smoke test.
-
 This needs no GPU and no NVIDIA toolchain. The CPU runtime shim emulates the full launch geometry, so the unchanged `DEVICE` kernel runs end-to-end through the Pascal host path.
 
-The host program now takes simple **positional** command-line parameters using the vintage `pascal-1981` program-parameter model:
+## CLI
+
+The host program uses the vintage `pascal-1981` program-parameter model, so its command line is **positional**:
 
 ```text
 mandelbrot_host <outfile> <view> <prec> <theme>
 ```
 
-Where:
+Arguments:
 
 - `outfile` — output PNG filename
-- `view` — `1=overview`, `2=seahorse_valley`, `3=elephant_valley`, `4=double_spiral`
-- `prec` — `s` for `f32`, anything else for `f64`
-- `theme` — `0=classic`, `1=fire`, `2=ice`, `3=rainbow`, `4=emacs`, `5=grayscale`
+- `view` — which built-in view to render:
+  - `1` = overview
+  - `2` = seahorse valley
+  - `3` = elephant valley
+  - `4` = double spiral
+- `prec` — kernel precision:
+  - `s` or `S` = `f32`
+  - anything else = `f64`
+- `theme` — color theme:
+  - `0` = classic
+  - `1` = fire
+  - `2` = ice
+  - `3` = rainbow
+  - `4` = emacs
+  - `5` = grayscale
 
 Example:
 
@@ -72,7 +84,13 @@ Example:
 ./mandelbrot_host demo.png 2 s 1
 ```
 
-If arguments are omitted, the Pascal runtime prompts for the missing trailing values.
+That writes `demo.png` using:
+
+- view `2` (seahorse valley)
+- single-precision kernel (`f32`)
+- theme `1` (fire)
+
+If one or more trailing arguments are omitted, the Pascal runtime prompts for the missing values interactively.
 
 ## Optional CUDA build
 
