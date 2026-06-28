@@ -26,9 +26,26 @@ make run              # DEVICE=cpu by default
 
 This needs no GPU and no NVIDIA toolchain. The CPU runtime shim emulates the full launch geometry, so the unchanged `DEVICE` kernel runs end-to-end through the Pascal host path.
 
-Successful output writes:
+The host program now takes simple **positional** command-line parameters using the vintage `pascal-1981` program-parameter model:
 
-- `pascal/mandelbrot_pascal_f64.png`
+```text
+mandelbrot_host <outfile> <view> <prec> <theme>
+```
+
+Where:
+
+- `outfile` — output PNG filename
+- `view` — `1=overview`, `2=seahorse_valley`, `3=elephant_valley`, `4=double_spiral`
+- `prec` — `s` for `f32`, anything else for `f64`
+- `theme` — `0=classic`, `1=fire`, `2=ice`, `3=rainbow`, `4=emacs`, `5=grayscale`
+
+Example:
+
+```bash
+./mandelbrot_host demo.png 2 s 1
+```
+
+If arguments are omitted, the Pascal runtime prompts for the missing trailing values.
 
 ## Optional CUDA build
 
@@ -42,12 +59,9 @@ make DEVICE=cuda run
 
 ## Current defaults
 
-The host program currently renders the Python project's built-in **overview** view at:
+The host program currently renders at:
 
 - `640 x 360`
 - `max_iter = 512`
-- `theme = classic`
-- `precision = f64`
 
-To switch to the single-precision kernel, change `use_f32` in `mandelbrot_host.pas`.
-To switch theme, change the `theme` constant.
+The view/theme/precision are now selected at launch time through the positional arguments above.

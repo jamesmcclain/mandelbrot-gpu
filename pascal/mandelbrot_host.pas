@@ -1,5 +1,5 @@
 (*$INCLUDE:'mandelbrot.inc'*)
-PROGRAM mandelbrot_host(output);
+PROGRAM mandelbrot_host(output, outfile, view, prec, theme_sel);
 
 USES MANDELBROT (mandelbrot_f32, mandelbrot_f64);
 
@@ -16,12 +16,12 @@ USES MANDELBROT (mandelbrot_f32, mandelbrot_f64);
 
 FUNCTION malloc(nbytes: CSIZE_T): ADRMEM [C]; EXTERN;
 PROCEDURE free(p: ADRMEM) [C]; EXTERN;
-FUNCTION write_mandelbrot_png(file_name: ADRMEM;
-                              width: CINT;
-                              height: CINT;
-                              max_iter: CINT;
-                              theme: CINT;
-                              iters: ADRMEM): CINT [C]; EXTERN;
+FUNCTION write_mandelbrot_png_lstring(file_name: ADRMEM;
+                                      width: CINT;
+                                      height: CINT;
+                                      max_iter: CINT;
+                                      theme: CINT;
+                                      iters: ADRMEM): CINT [C]; EXTERN;
 
 CONST
   width    = 640;
@@ -38,47 +38,61 @@ CONST
   theme_emacs     = 4;
   theme_grayscale = 5;
 
-  use_f32 = FALSE;
-  theme   = theme_classic;
-
 VAR
+  outfile: LSTRING(96);
+  view: INTEGER;
+  prec: CHAR;
+  theme_sel: INTEGER;
+
   dev, host_buf: ADRMEM;
   x_min, x_max, y_min, y_max: REAL;
   x_min32, x_max32, y_min32, y_max32: REAL32;
   bytes: INTEGER32;
   blocks_x, blocks_y: INTEGER32;
   ok: CINT;
-  filename: ARRAY [0..31] OF CHAR;
+  use_f32: BOOLEAN;
+  theme: INTEGER32;
 
-PROCEDURE build_filename;
+PROCEDURE apply_view(which: INTEGER);
 BEGIN
-  filename[0] := 'm'; filename[1] := 'a'; filename[2] := 'n'; filename[3] := 'd';
-  filename[4] := 'e'; filename[5] := 'l'; filename[6] := 'b'; filename[7] := 'r';
-  filename[8] := 'o'; filename[9] := 't'; filename[10] := '_'; filename[11] := 'p';
-  filename[12] := 'a'; filename[13] := 's'; filename[14] := 'c'; filename[15] := 'a';
-  filename[16] := 'l';
-  IF use_f32 THEN
-  BEGIN
-    filename[17] := '_'; filename[18] := 'f'; filename[19] := '3'; filename[20] := '2';
-    filename[21] := '.'; filename[22] := 'p'; filename[23] := 'n'; filename[24] := 'g';
-    filename[25] := CHR(0)
-  END
-  ELSE
-  BEGIN
-    filename[17] := '_'; filename[18] := 'f'; filename[19] := '6'; filename[20] := '4';
-    filename[21] := '.'; filename[22] := 'p'; filename[23] := 'n'; filename[24] := 'g';
-    filename[25] := CHR(0)
+  CASE which OF
+    1:
+      BEGIN
+        x_min := -2.9722; x_max := 1.4722; y_min := -1.25; y_max := 1.25
+      END;
+    2:
+      BEGIN
+        x_min := -0.7828; x_max := -0.6832; y_min := 0.092; y_max := 0.148
+      END;
+    3:
+      BEGIN
+        x_min := 0.1994; x_max := 0.4306; y_min := -0.065; y_max := 0.065
+      END;
+    4:
+      BEGIN
+        x_min := -0.7801; x_max := -0.7249; y_min := 0.1000; y_max := 0.1310
+      END;
+    OTHERWISE
+      BEGIN
+        WRITELN('unknown view ', which, '; using overview');
+        x_min := -2.9722; x_max := 1.4722; y_min := -1.25; y_max := 1.25
+      END
   END
 END;
 
 BEGIN
-  { Full-set overview, matching the Python project's built-in overview view. }
-  x_min := -2.9722;
-  x_max :=  1.4722;
-  y_min := -1.25;
-  y_max :=  1.25;
+  use_f32 := FALSE;
+  IF (prec = 's') OR (prec = 'S') THEN
+    use_f32 := TRUE;
 
-  build_filename;
+  theme := theme_sel;
+  IF (theme < theme_classic) OR (theme > theme_grayscale) THEN
+  BEGIN
+    WRITELN('unknown theme ', theme, '; using classic');
+    theme := theme_classic
+  END;
+
+  apply_view(view);
   bytes := width * height * 4;
   blocks_x := (width + block_x - 1) DIV block_x;
   blocks_y := (height + block_y - 1) DIV block_y;
@@ -99,12 +113,12 @@ BEGIN
   DEVCOPYFROM(host_buf, dev, bytes);
   DEVFREE(dev);
 
-  ok := write_mandelbrot_png(ADR filename, width, height, max_iter, theme, host_buf);
+  ok := write_mandelbrot_png_lstring(ADR outfile, width, height, max_iter, theme, host_buf);
   free(host_buf);
 
   IF ok = 1 THEN
   BEGIN
-    WRITELN('wrote ', filename);
+    WRITELN('wrote ', outfile);
     IF use_f32 THEN
       WRITELN('precision: f32')
     ELSE

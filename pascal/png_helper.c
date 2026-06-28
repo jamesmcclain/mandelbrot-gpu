@@ -104,12 +104,12 @@ static void color_pixel(uint8_t value, int32_t theme, uint8_t *r, uint8_t *g, ui
   }
 }
 
-int32_t write_mandelbrot_png(const char *file_name,
-                             int32_t width,
-                             int32_t height,
-                             int32_t max_iter,
-                             int32_t theme,
-                             const int32_t *iters) {
+static int32_t write_mandelbrot_png(const char *file_name,
+                                    int32_t width,
+                                    int32_t height,
+                                    int32_t max_iter,
+                                    int32_t theme,
+                                    const int32_t *iters) {
   size_t pixels = (size_t)width * (size_t)height;
   int grayscale = (theme == THEME_GRAYSCALE);
   size_t channels = grayscale ? 1u : 3u;
@@ -149,5 +149,23 @@ int32_t write_mandelbrot_png(const char *file_name,
 
   ok = png_image_write_to_file(&image, file_name, 0, buffer, 0, NULL);
   free(buffer);
+  return ok;
+}
+
+int32_t write_mandelbrot_png_lstring(const uint8_t *file_name,
+                                     int32_t width,
+                                     int32_t height,
+                                     int32_t max_iter,
+                                     int32_t theme,
+                                     const int32_t *iters) {
+  uint8_t len = file_name[0];
+  char *c_name = (char *)malloc((size_t)len + 1u);
+  int32_t ok;
+
+  if (c_name == NULL) return 0;
+  memcpy(c_name, file_name + 1, len);
+  c_name[len] = '\0';
+  ok = write_mandelbrot_png(c_name, width, height, max_iter, theme, iters);
+  free(c_name);
   return ok;
 }

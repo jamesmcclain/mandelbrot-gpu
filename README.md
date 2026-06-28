@@ -152,7 +152,15 @@ There is now a full Pascal-hosted path in [`pascal/`](pascal/): the existing Pas
 cd pascal
 make runtime
 make run          # DEVICE=cpu by default; no GPU required
+./mandelbrot_host demo.png 2 s 1
 ```
+
+The Pascal host binary takes positional arguments:
+
+- output filename
+- view number (`1..4`)
+- precision (`s` for f32, otherwise f64)
+- theme number (`0..5`)
 
 That build targets the `pascal-1981` CPU-device shim, which emulates the launch geometry on the host CPU. The result is an end-to-end proof of the Pascal renderer without needing NVIDIA hardware or the full CUDA toolchain.
 
