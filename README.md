@@ -162,7 +162,7 @@ The Pascal host binary takes positional arguments:
 - precision (`s` for f32, otherwise f64)
 - theme number (`0..5`)
 
-You can also install the sibling `pascal-1981` checkout into your active venv and rebuild with the installed `python3 -m pascal1981`; see [`pascal/README.md`](pascal/README.md).
+You can also install `pascal-1981` into your active venv from disk or from GitHub, then rebuild with the installed `python3 -m pascal1981`; see [`pascal/README.md`](pascal/README.md).
 
 That build targets the `pascal-1981` CPU-device shim, which emulates the launch geometry on the host CPU. The result is an end-to-end proof of the Pascal renderer without needing NVIDIA hardware or the full CUDA toolchain.
 

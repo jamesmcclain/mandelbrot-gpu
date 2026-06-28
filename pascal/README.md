@@ -18,13 +18,14 @@ Prerequisites:
 
 ## Install the compiler into your venv
 
-If you want to build with an installed toolchain instead of `PYTHONPATH=../pascal-1981/src`, install the sibling checkout into the active virtual environment:
+If you want to build with an installed toolchain instead of a source-checkout `PYTHONPATH`, install `pascal-1981` into the active virtual environment with `pip`.
 
-```bash
-python3 -m pip install ../pascal-1981
-```
+That can be done either:
 
-Then a manual rebuild looks like this:
+- from a local on-disk checkout, or
+- directly from the GitHub repository.
+
+Once installed, a manual rebuild looks like this:
 
 ```bash
 cd pascal
@@ -32,11 +33,13 @@ make clean
 mkdir -p build
 python3 -m pascal1981 --dialect extended -f wide-integers mandelbrot_host.pas build/host.ll
 python3 -m pascal1981 --dialect extended -f wide-integers mandelbrot.pas build/dev.ll
-clang build/host.ll build/dev.ll png_helper.c ../pascal-1981/runtime/build/libpascalrt.a -lpng -lm -o mandelbrot_host
+clang build/host.ll build/dev.ll png_helper.c /path/to/libpascalrt.a -lpng -lm -o mandelbrot_host
 ./mandelbrot_host pip_build.png 1 d 0
 ```
 
-That was verified in this repository's venv: the installed `python3 -m pascal1981` successfully rebuilt the example and wrote a valid PNG.
+The only remaining non-`pip` dependency in that manual path is the Pascal runtime archive (`libpascalrt.a`), which must come from a built `pascal-1981` checkout.
+
+This installed-toolchain flow was verified in this repository's venv: `python3 -m pascal1981` successfully rebuilt the example and wrote a valid PNG.
 
 ## Run on the CPU-device shim
 
