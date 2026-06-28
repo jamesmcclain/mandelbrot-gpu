@@ -136,13 +136,15 @@ docs/
   clang-opencl.md           # Building Clang/libclc from source
   amd-opencl-porting.md     # NVIDIA → AMD porting notes
 pascal/
-  mandelbrot.pas            # CUDA kernel written in [`pascal-1981`](https://github.com/jamesmcclain/pascal-1981)
+  mandelbrot.pas            # CUDA kernel written in pascal-1981
   mandelbrot.inc            # `pascal-1981` header file
   mandelbrot_host.pas       # Pascal host renderer; launches the unchanged DEVICE kernel
   png_helper.c              # tiny libpng bridge used by the Pascal host via C-FFI
   Makefile                  # DEVICE=cpu|cuda build for the Pascal host path
   README.md                 # Pascal host build/run notes
 ```
+
+The Pascal pieces use [pascal-1981](https://github.com/jamesmcclain/pascal-1981).
 
 ## Pascal end-to-end path
 
