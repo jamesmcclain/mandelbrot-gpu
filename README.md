@@ -138,7 +138,23 @@ docs/
 pascal/
   mandelbrot.pas            # CUDA kernel written in [`pascal-1981`](https://github.com/jamesmcclain/pascal-1981)
   mandelbrot.inc            # `pascal-1981` header file
+  mandelbrot_host.pas       # Pascal host renderer; launches the unchanged DEVICE kernel
+  png_helper.c              # tiny libpng bridge used by the Pascal host via C-FFI
+  Makefile                  # DEVICE=cpu|cuda build for the Pascal host path
+  README.md                 # Pascal host build/run notes
 ```
+
+## Pascal end-to-end path
+
+There is now a full Pascal-hosted path in [`pascal/`](pascal/): the existing Pascal `DEVICE` kernel is left unchanged, and a Pascal host program handles allocation, launch, copy-back, and PNG output.
+
+```bash
+cd pascal
+make runtime
+make run          # DEVICE=cpu by default; no GPU required
+```
+
+That build targets the `pascal-1981` CPU-device shim, which emulates the launch geometry on the host CPU. The result is an end-to-end proof of the Pascal renderer without needing NVIDIA hardware or the full CUDA toolchain.
 
 ## Dependencies
 
