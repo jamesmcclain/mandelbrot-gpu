@@ -24,8 +24,8 @@ FUNCTION write_mandelbrot_png_lstring(file_name: ADRMEM;
                                       iters: ADRMEM): CINT [C]; EXTERN;
 
 CONST
-  width    = 640;
-  height   = 360;
+  width    = 3840;
+  height   = 2160;
   max_iter = 512;
 
   block_x = 16;
