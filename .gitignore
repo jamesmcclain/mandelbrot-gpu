@@ -4,3 +4,5 @@ __pycache__/
 *.png
 *.mp4
 *.zip
+pascal/build/
+pascal/mandelbrot

@@ -136,9 +136,39 @@ docs/
   clang-opencl.md           # Building Clang/libclc from source
   amd-opencl-porting.md     # NVIDIA → AMD porting notes
 pascal/
-  mandelbrot.pas            # CUDA kernel written in [`pascal-1981`](https://github.com/jamesmcclain/pascal-1981)
+  mandelbrot.pas            # CUDA kernel written in pascal-1981
   mandelbrot.inc            # `pascal-1981` header file
+  mandelbrot_host.pas       # Pascal host renderer; launches the unchanged DEVICE kernel
+  png_helper.c              # tiny libpng bridge used by the Pascal host via C-FFI
+  Makefile                  # DEVICE=cpu|cuda build for the Pascal host path
+  README.md                 # Pascal host build/run notes
 ```
+
+The Pascal pieces use [pascal-1981](https://github.com/jamesmcclain/pascal-1981).
+
+## Pascal end-to-end path
+
+There is now a full Pascal-hosted path in [`pascal/`](pascal/): the existing Pascal `DEVICE` kernel is left unchanged, and a Pascal host program handles allocation, launch, copy-back, and PNG output.
+
+```bash
+cd pascal
+make runtime
+make run          # DEVICE=cpu by default; no GPU required; writes mandelbrot.png
+./mandelbrot demo.png 2 s 1
+```
+
+The Pascal host binary (`./mandelbrot`) takes positional arguments:
+
+- output filename
+- view number (`1..4`)
+- precision (`s` for f32, otherwise f64)
+- theme number (`0..5`)
+
+You can also install `pascal-1981` into your active venv from disk or from GitHub, then rebuild with the installed `python3 -m pascal1981`; see [`pascal/README.md`](pascal/README.md).
+
+The Pascal Makefile also has a `DEVICE=cuda` branch. On a CUDA-capable machine it is intended to compile the Pascal device unit to PTX, package the PTX as a blob, build the host with `--device-backend cuda`, and link against the CUDA driver shim. That path is documented in [`pascal/README.md`](pascal/README.md) on a best-effort basis from the upstream `pascal-1981` examples.
+
+That build targets the `pascal-1981` CPU-device shim by default, which emulates the launch geometry on the host CPU. The result is an end-to-end proof of the Pascal renderer without needing NVIDIA hardware or the full CUDA toolchain.
 
 ## Dependencies
 
