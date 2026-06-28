@@ -10,7 +10,7 @@ PAS          := $(PYTHON) -m pascal1981
 PASCALRT_DIR := $(shell $(PYTHON) -c 'import pathlib, pascal1981; print(pathlib.Path(pascal1981.__file__).parent)')
 RUNTIME_CPU  := $(PASCALRT_DIR)/libpascalrt.a
 RUNTIME_CUDA := $(PASCALRT_DIR)/libpascalrt_cuda.a
-FEATURES     := --dialect extended -f wide-integers
+FEATURES     := --dialect extended
 
 HOST_SRC    := mandelbrot_host.pas
 DEVICE_UNIT := mandelbrot.pas
@@ -26,7 +26,7 @@ run: $(EXE)
 	./$(EXE) $(RUN_ARGS)
 
 clean:
-	rm -rf $(BUILD) $(EXE) mandelbrot.png
+	rm -rf $(BUILD) $(EXE) *.png
 
 check-runtime-cpu:
 	@test -f "$(RUNTIME_CPU)" || { echo "Missing Pascal CPU runtime: $(RUNTIME_CPU)" >&2; exit 1; }
@@ -39,7 +39,7 @@ $(BUILD):
 
 ifeq ($(DEVICE),cuda)
 $(BUILD)/dev.ptx: $(DEVICE_UNIT) | $(BUILD)
-	$(PAS) --target ptx $< $@ --sm $(SM) -f wide-integers
+	$(PAS) --target ptx $< $@ --sm $(SM)
 
 $(BUILD)/dev_ptx_blob.s: $(BUILD)/dev.ptx | $(BUILD)
 	printf '\t.section .rodata\n\t.globl __pas_device_ptx\n__pas_device_ptx:\n\t.incbin "$(BUILD)/dev.ptx"\n\t.byte 0\n' > $@
