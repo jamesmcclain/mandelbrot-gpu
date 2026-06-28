@@ -7,25 +7,26 @@ What changed:
 - `mandelbrot.pas` / `mandelbrot.inc` remain the unchanged device kernels
 - `mandelbrot_host.pas` is the Pascal host source that allocates device memory, launches the kernel, copies the iteration buffer back, and writes a PNG
 - `png_helper.c` is a tiny libpng helper used through Pascal C-FFI
-- `Makefile` builds the whole thing against a local `pascal-1981` checkout plus its runtime archive
+- `Makefile` builds the whole thing with the pip-installed `pascal1981` compiler and runtime archives from the active Python environment
 
 Prerequisites:
 
-- a local `pascal-1981` checkout with its runtime built
+- `pascal-1981` installed into the active Python environment with `pip`
+- the installed package's runtime archives (`libpascalrt.a` for CPU, and `libpascalrt_cuda.a` for CUDA builds)
 - `clang`
 - `libpng` development headers/library
 - Python with whatever `pascal-1981` itself needs (`llvmlite`, etc.)
 
-## Install the compiler into your venv
+## Installed compiler/runtime flow
 
-If you want to build with an installed toolchain instead of a source-checkout `PYTHONPATH`, install `pascal-1981` into the active virtual environment with `pip`.
-
-That can be done either:
+Install `pascal-1981` into the active virtual environment with `pip`. That can be done either:
 
 - from a local on-disk checkout, or
 - directly from the GitHub repository.
 
-Once installed, a manual rebuild looks like this:
+The Makefile discovers the runtime archive from the installed Python package and invokes the compiler as `python3 -m pascal1981`; it no longer assumes a sibling `../pascal-1981` source checkout or builds the runtime out-of-tree.
+
+A manual rebuild equivalent to the Makefile looks like this:
 
 ```bash
 cd pascal
@@ -33,11 +34,14 @@ make clean
 mkdir -p build
 python3 -m pascal1981 --dialect extended -f wide-integers mandelbrot_host.pas build/host.ll
 python3 -m pascal1981 --dialect extended -f wide-integers mandelbrot.pas build/dev.ll
-clang build/host.ll build/dev.ll png_helper.c /path/to/libpascalrt.a -lpng -lm -o mandelbrot
+clang build/host.ll build/dev.ll png_helper.c \
+  "$(python3 - <<'PY'
+import pathlib, pascal1981
+print(pathlib.Path(pascal1981.__file__).parent / 'libpascalrt.a')
+PY
+)" -lpng -lm -o mandelbrot
 ./mandelbrot pip_build.png 1 d 0
 ```
-
-The only remaining non-`pip` dependency in that manual path is the Pascal runtime archive (`libpascalrt.a`), which must come from a built `pascal-1981` checkout.
 
 This installed-toolchain flow was verified in this repository's venv: `python3 -m pascal1981` successfully rebuilt the example and wrote a valid PNG.
 
@@ -45,7 +49,6 @@ This installed-toolchain flow was verified in this repository's venv: `python3 -
 
 ```bash
 cd pascal
-make runtime
 make run              # DEVICE=cpu by default; writes mandelbrot.png
 ```
 
@@ -96,9 +99,9 @@ make run RUN_ARGS="demo.png 4 s 3"
 
 That writes `demo.png` using:
 
-- view `2` (seahorse valley)
+- view `4` (double spiral)
 - single-precision kernel (`f32`)
-- theme `1` (fire)
+- theme `3` (rainbow)
 
 If one or more trailing arguments are omitted, the Pascal runtime prompts for the missing values interactively.
 
@@ -110,7 +113,6 @@ On a CUDA-capable machine, the intended flow is:
 
 ```bash
 cd pascal
-make runtime-cuda
 make DEVICE=cuda run
 ```
 
@@ -124,7 +126,7 @@ Best-effort reconstruction of what that does, based on the `pascal-1981` example
 
 Expected prerequisites for that path are:
 
-- a built CUDA runtime archive from the local `pascal-1981` checkout (`make runtime-cuda`)
+- `libpascalrt_cuda.a` included in the pip-installed `pascal1981` package
 - CUDA headers / driver library availability for `-lcuda`
 - an NVIDIA GPU and working driver
 - `llvmlite` with NVPTX support so `pascal1981 --target ptx` can emit PTX
