@@ -27,7 +27,7 @@ run: $(EXE)
 	./$(EXE) $(RUN_ARGS)
 
 clean:
-	rm -rf $(BUILD) $(EXE) mandelbrot_pascal_f32.png mandelbrot_pascal_f64.png
+	rm -rf $(BUILD) $(EXE) mandelbrot.png
 
 runtime:
 	$(MAKE) -C $(RUNTIME)
