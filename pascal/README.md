@@ -116,13 +116,14 @@ cd pascal
 make DEVICE=cuda run
 ```
 
-Best-effort reconstruction of what that does, based on the `pascal-1981` examples:
+The Makefile now uses the compiler driver's built-in PTX embedding path:
 
 - compiles `mandelbrot.pas` to PTX with `--target ptx --sm <arch>`
-- packages the PTX text into a `__pas_device_ptx` blob object
-- compiles the host with `--device-backend cuda`
-- links the host, PTX blob, `png_helper.c`, the CUDA runtime shim archive, and `-lcuda`
+- compiles the host with `--device-backend cuda --embed-device-ptx build/dev.ptx`
+- links the host, `png_helper.c`, the CUDA runtime shim archive, and `-lcuda`
 - runs the resulting `./mandelbrot` binary
+
+That avoids the old hand-written `.incbin` assembly stub and the extra PTX-blob object file.
 
 Expected prerequisites for that path are:
 
