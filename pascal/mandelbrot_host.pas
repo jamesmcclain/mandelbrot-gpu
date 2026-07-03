@@ -48,6 +48,7 @@ VAR
   x_min, x_max, y_min, y_max: REAL;
   x_min32, x_max32, y_min32, y_max32: REAL32;
   bytes: INTEGER32;
+  malloc_bytes: CSIZE_T;
   blocks_x, blocks_y: INTEGER32;
   ok: CINT;
   use_f32: BOOLEAN;
@@ -93,12 +94,21 @@ BEGIN
   END;
 
   apply_view(view);
-  bytes := width * height * 4;
+  bytes := width * height * SIZEOF(INTEGER32);
+  malloc_bytes := bytes;
   blocks_x := (width + block_x - 1) DIV block_x;
   blocks_y := (height + block_y - 1) DIV block_y;
 
   dev := DEVALLOC(bytes);
-  host_buf := malloc(bytes);
+  IF dev = NIL THEN
+    ABORT('device allocation failed', WRD(1), WRD(1));
+
+  host_buf := malloc(malloc_bytes);
+  IF host_buf = NIL THEN
+  BEGIN
+    DEVFREE(dev);
+    ABORT('host allocation failed', WRD(1), WRD(2))
+  END;
 
   IF use_f32 THEN
   BEGIN
