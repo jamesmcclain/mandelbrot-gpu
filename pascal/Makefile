@@ -41,17 +41,11 @@ ifeq ($(DEVICE),cuda)
 $(BUILD)/dev.ptx: $(DEVICE_UNIT) | $(BUILD)
 	$(PAS) --target ptx $< $@ --sm $(SM)
 
-$(BUILD)/dev_ptx_blob.s: $(BUILD)/dev.ptx | $(BUILD)
-	printf '\t.section .rodata\n\t.globl __pas_device_ptx\n__pas_device_ptx:\n\t.incbin "$(BUILD)/dev.ptx"\n\t.byte 0\n' > $@
+$(BUILD)/host.ll: $(HOST_SRC) $(BUILD)/dev.ptx | $(BUILD)
+	$(PAS) $(FEATURES) --device-backend cuda --embed-device-ptx $(BUILD)/dev.ptx $< $@
 
-$(BUILD)/dev_ptx_blob.o: $(BUILD)/dev_ptx_blob.s
-	clang -c $< -o $@
-
-$(BUILD)/host.ll: $(HOST_SRC) | $(BUILD)
-	$(PAS) $(FEATURES) --device-backend cuda $< $@
-
-$(EXE): $(BUILD)/host.ll $(BUILD)/dev_ptx_blob.o $(PNG_HELPER) | check-runtime-cuda
-	clang $(BUILD)/host.ll $(BUILD)/dev_ptx_blob.o $(PNG_HELPER) $(RUNTIME_CUDA) \
+$(EXE): $(BUILD)/host.ll $(PNG_HELPER) | check-runtime-cuda
+	clang $(BUILD)/host.ll $(PNG_HELPER) $(RUNTIME_CUDA) \
 	      -L$(CUDA_HOME)/lib64/stubs -lcuda -lpng -lm -o $@
 else
 $(BUILD)/dev.ll: $(DEVICE_UNIT) | $(BUILD)
