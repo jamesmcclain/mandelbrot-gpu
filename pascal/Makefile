@@ -42,7 +42,7 @@ $(BUILD)/dev.ptx: $(DEVICE_UNIT) | $(BUILD)
 	$(PAS) --target ptx $< $@ --sm $(SM)
 
 $(BUILD)/dev_ptx_blob.s: $(BUILD)/dev.ptx | $(BUILD)
-	printf '\t.section .rodata\n\t.globl __pas_device_ptx\n__pas_device_ptx:\n\t.incbin "$(BUILD)/dev.ptx"\n\t.byte 0\n' > $@
+	printf '\t.section .rodata\n\t.globl __pas_device_ptx\n__pas_device_ptx:\n\t.incbin "$(BUILD)/dev.ptx"\n\t.byte 0\n\t.section .note.GNU-stack,"",@progbits\n' > $@
 
 $(BUILD)/dev_ptx_blob.o: $(BUILD)/dev_ptx_blob.s
 	clang -c $< -o $@
