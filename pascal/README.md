@@ -6,7 +6,7 @@ Contents:
 
 - `mandelbrot.pas` / `mandelbrot.inc` are the unchanged device kernels
 - `mandelbrot_host.pas` is the Pascal host source: it allocates the iteration buffer as a heap super array, launches the kernel, copies the iteration counts back, colorizes into a `WORD8` pixel buffer, and writes the PNG by calling libpng's simplified write API directly through the `pascal-1981` C foreign-function interface
-- `Makefile` builds the whole thing with the pip-installed `pascal1981` compiler and runtime archives from the active Python environment
+- `Makefile` builds the whole thing with the pip-installed `pascal1981` gcc-style compiler driver and the runtime archives bundled with the active Python environment.  Three equivalent build variants are provided (see [Makefile variants](#makefile-variants) below); `Makefile` (Option A) is the default
 
 The former `png_helper.c` shim is gone. The three jobs it did are now Pascal:
 
@@ -31,7 +31,7 @@ Install `pascal-1981` into the active virtual environment with `pip`. That can b
 - from a local on-disk checkout, or
 - directly from the GitHub repository.
 
-The Makefile discovers the runtime archive from the installed Python package and invokes the compiler as `python3 -m pascal1981`; it does not assume a sibling `../pascal-1981` source checkout or build the runtime out-of-tree.
+The Makefile invokes the compiler through the `pascal1981` console script (gcc-style stages: `-S` compiles to LLVM IR/PTX, `-c` assembles to an object, and a plain invocation links) and discovers the runtime archive gcc-style with `pascal1981 -print-file-name=libpascalrt.a`; it does not assume a sibling `../pascal-1981` source checkout or build the runtime out-of-tree.
 
 A manual rebuild equivalent to the Makefile looks like this:
 
@@ -39,16 +39,40 @@ A manual rebuild equivalent to the Makefile looks like this:
 cd pascal
 make clean
 mkdir -p build
-python3 -m pascal1981 --dialect extended mandelbrot_host.pas build/host.ll
-python3 -m pascal1981 --dialect extended mandelbrot.pas build/dev.ll
-clang build/host.ll build/dev.ll \
-  "$(python3 - <<'PY'
-import pathlib, pascal1981
-print(pathlib.Path(pascal1981.__file__).parent / 'libpascalrt.a')
-PY
-)" -lpng -lm -o mandelbrot
+pascal1981 --dialect extended -c mandelbrot_host.pas -o build/host.o
+pascal1981 --dialect extended -c mandelbrot.pas -o build/dev.o
+clang build/host.o build/dev.o \
+  "$(pascal1981 -print-file-name=libpascalrt.a)" -lpng -lm -o mandelbrot
 ./mandelbrot pip_build.png 1 d 0
 ```
+
+The final link is an explicit `clang` invocation rather than the driver's own
+link step because the driver compiles exactly one source file per invocation
+and has no way to add the device unit's object to the link line.
+
+## Makefile variants
+
+Three equivalent Makefiles are provided; pick per taste.  All of them support
+the same targets (`all`, `run`, `clean`) and the same `DEVICE`/`SM`/`RUN_ARGS`
+variables, and all three produce byte-identical output on the CPU device.
+
+- **`Makefile` — Option A (default): gcc-style per-unit objects + explicit
+  final link.**  Each unit is compiled and assembled by the driver itself
+  (`pascal1981 -c`), then `clang` links the objects with the runtime archive
+  located via `pascal1981 -print-file-name=libpascalrt.a`.
+- **`Makefile.driver-link` — Option B: the driver performs the final link.**
+  `make -f Makefile.driver-link run`.  One driver invocation compiles the
+  host unit and links the executable (the driver appends its bundled
+  `libpascalrt.a` automatically); the device unit's object is passed through
+  to the linker as a bare input file via `-Wl`.  CPU only — the CUDA branch
+  falls back to Option A's explicit link, because the driver always appends
+  its bundled CPU runtime, whose shim symbols would shadow the CUDA variants
+  in `libpascalrt_cuda.a`.
+- **`Makefile.ir` — Option C: keep inspectable `.ll` IR artifacts.**
+  `make -f Makefile.ir run`.  The minimal diff against the pre-update
+  Makefile: every unit stops at `-S` (LLVM IR, or PTX for the nvptx device
+  unit) and `clang` is driven by hand.  Useful when you want the IR in
+  `build/` to inspect, diff, or feed to other LLVM tools.
 
 ## Run on the CPU-device shim
 
@@ -123,9 +147,9 @@ make DEVICE=cuda run
 
 The Makefile uses the compiler driver's built-in PTX embedding path:
 
-- compiles `mandelbrot.pas` to PTX with `--target ptx --sm <arch>`
-- compiles the host with `--device-backend cuda --embed-device-ptx build/dev.ptx`
-- links the host, the CUDA runtime shim archive, `-lcuda`, and `-lpng -lm`
+- compiles `mandelbrot.pas` to PTX with `-S --device-triple nvptx64-nvidia-cuda --sm <arch>`
+- compiles the host to an object with `--device-backend cuda --embed-device-ptx build/dev.ptx -c`
+- links the host object with the CUDA runtime shim archive (`libpascalrt_cuda.a`, found next to `$(pascal1981 -print-file-name=libpascalrt.a)`), `-lcuda`, and `-lpng -lm`
 - runs the resulting `./mandelbrot` binary
 
 Expected prerequisites for that path are:
@@ -133,7 +157,7 @@ Expected prerequisites for that path are:
 - `libpascalrt_cuda.a` included in the pip-installed `pascal1981` package
 - CUDA headers / driver library availability for `-lcuda`
 - an NVIDIA GPU and working driver
-- `llvmlite` with NVPTX support so `pascal1981 --target ptx` can emit PTX
+- `llvmlite` with NVPTX support so `pascal1981 -S --device-triple nvptx64-nvidia-cuda` can emit PTX
 
 This CUDA branch is wired in the Makefile, but it was **not executed in this VM** because this environment has no GPU and no full NVIDIA toolchain.
 

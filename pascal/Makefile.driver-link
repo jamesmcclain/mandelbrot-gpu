@@ -1,0 +1,84 @@
+# Option B: let the pascal1981 driver perform the final link (CPU only).
+#
+#   make -f Makefile.driver-link [run]
+#
+# The driver compiles the host unit and links it in one invocation,
+# automatically appending its bundled libpascalrt.a -- no -print-file-name
+# discovery needed on the link line.  Because the driver's link step accepts
+# exactly one source file and no extra inputs, the device unit's object is
+# passed through to the linker as a bare input file via -Wl (GNU ld and
+# compatibles treat a bare path as an object to link).
+#
+# Caveats of this option:
+#   * It relies on the linker accepting input files through -Wl; portable to
+#     GNU ld / lld / mold, but less obvious to read than an explicit link.
+#   * The driver's link line places -Wl arguments after its bundled runtime
+#     archive, so a second copy of the archive is passed (also via -Wl) after
+#     the device object, in case dev.o references runtime symbols that the
+#     host object did not already pull in.  Archives pull members on demand,
+#     so the duplicate is harmless.
+#   * CUDA cannot use the driver's link step: the driver always appends its
+#     bundled CPU libpascalrt.a, whose shim symbols share names with (and
+#     would shadow) the CUDA variants in libpascalrt_cuda.a.  The CUDA branch
+#     below therefore falls back to the explicit clang link, exactly as in
+#     Option A.
+
+DEVICE ?= cpu
+SM ?= sm_86
+CUDA_HOME ?= /usr/local/cuda
+
+THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+BUILD    := $(THIS_DIR)/build
+
+PAS          := pascal1981
+FEATURES     := --dialect extended
+NVPTX_TRIPLE := nvptx64-nvidia-cuda
+
+# Only needed for the CUDA branch and the -Wl ordering belt-and-braces; the
+# CPU link below would work without it since the driver adds the runtime.
+RUNTIME_CPU  := $(shell $(PAS) -print-file-name=libpascalrt.a)
+RUNTIME_CUDA := $(dir $(RUNTIME_CPU))libpascalrt_cuda.a
+
+HOST_SRC    := mandelbrot_host.pas
+DEVICE_UNIT := mandelbrot.pas
+EXE         := mandelbrot
+RUN_ARGS    ?= mandelbrot.png 1 d 0
+
+.PHONY: all run clean check-runtime-cuda
+
+all: $(EXE)
+
+run: $(EXE)
+	./$(EXE) $(RUN_ARGS)
+
+clean:
+	rm -rf $(BUILD) $(EXE) *.png
+
+check-runtime-cuda:
+	@test -f "$(RUNTIME_CUDA)" || { echo "Missing Pascal CUDA runtime: $(RUNTIME_CUDA)" >&2; exit 1; }
+
+$(BUILD):
+	mkdir -p $(BUILD)
+
+ifeq ($(DEVICE),cuda)
+# CUDA branch: identical to Option A (see header comment for why the driver
+# cannot own this link).
+$(BUILD)/dev.ptx: $(DEVICE_UNIT) | $(BUILD)
+	$(PAS) -S --device-triple $(NVPTX_TRIPLE) --sm $(SM) -o $@ $<
+
+$(BUILD)/host.o: $(HOST_SRC) $(BUILD)/dev.ptx | $(BUILD)
+	$(PAS) $(FEATURES) --device-backend cuda --embed-device-ptx $(BUILD)/dev.ptx -c -o $@ $<
+
+$(EXE): $(BUILD)/host.o | check-runtime-cuda
+	clang $< $(RUNTIME_CUDA) -L$(CUDA_HOME)/lib64/stubs -lcuda -lpng -lm -o $@
+else
+# CPU branch: one driver invocation compiles the host unit and links the
+# executable.  The device unit is still assembled with -c beforehand; its
+# object rides into the link through -Wl.
+$(BUILD)/dev.o: $(DEVICE_UNIT) | $(BUILD)
+	$(PAS) $(FEATURES) -c -o $@ $<
+
+$(EXE): $(HOST_SRC) $(BUILD)/dev.o
+	$(PAS) $(FEATURES) -o $@ $(HOST_SRC) -lpng -lm \
+	      -Wl,$(BUILD)/dev.o -Wl,$(RUNTIME_CPU)
+endif
