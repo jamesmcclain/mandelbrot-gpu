@@ -1,0 +1,72 @@
+# Option C: keep inspectable .ll IR artifacts (minimal diff vs the
+# pre-update Makefile).
+#
+#   make -f Makefile.ir [run]
+#
+# This is the old flow with new CLI spellings: every unit stops at -S
+# (LLVM IR for host-triple units, PTX for the nvptx device unit), and clang
+# is driven by hand for assembling+linking.  Useful when you want the IR in
+# build/ to inspect, diff, or feed to other LLVM tools.  Compared with the
+# pre-update Makefile only the command lines changed:
+#
+#   python3 -m pascal1981 <src> <out.ll>          ->  pascal1981 -S -o <out.ll> <src>
+#   python3 -m pascal1981 --target ptx <src> <o>  ->  pascal1981 -S --device-triple nvptx64-nvidia-cuda --sm <arch> -o <o> <src>
+#   runtime archive path via python introspection ->  pascal1981 -print-file-name=libpascalrt.a
+
+DEVICE ?= cpu
+SM ?= sm_86
+CUDA_HOME ?= /usr/local/cuda
+
+THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+BUILD    := $(THIS_DIR)/build
+
+PAS          := pascal1981
+FEATURES     := --dialect extended
+NVPTX_TRIPLE := nvptx64-nvidia-cuda
+
+RUNTIME_CPU  := $(shell $(PAS) -print-file-name=libpascalrt.a)
+RUNTIME_CUDA := $(dir $(RUNTIME_CPU))libpascalrt_cuda.a
+
+HOST_SRC    := mandelbrot_host.pas
+DEVICE_UNIT := mandelbrot.pas
+EXE         := mandelbrot
+RUN_ARGS    ?= mandelbrot.png 1 d 0
+
+.PHONY: all run clean check-runtime-cpu check-runtime-cuda
+
+all: $(EXE)
+
+run: $(EXE)
+	./$(EXE) $(RUN_ARGS)
+
+clean:
+	rm -rf $(BUILD) $(EXE) *.png
+
+check-runtime-cpu:
+	@test -f "$(RUNTIME_CPU)" || { echo "Missing Pascal CPU runtime: $(RUNTIME_CPU)" >&2; exit 1; }
+
+check-runtime-cuda:
+	@test -f "$(RUNTIME_CUDA)" || { echo "Missing Pascal CUDA runtime: $(RUNTIME_CUDA)" >&2; exit 1; }
+
+$(BUILD):
+	mkdir -p $(BUILD)
+
+ifeq ($(DEVICE),cuda)
+$(BUILD)/dev.ptx: $(DEVICE_UNIT) | $(BUILD)
+	$(PAS) -S --device-triple $(NVPTX_TRIPLE) --sm $(SM) -o $@ $<
+
+$(BUILD)/host.ll: $(HOST_SRC) $(BUILD)/dev.ptx | $(BUILD)
+	$(PAS) $(FEATURES) --device-backend cuda --embed-device-ptx $(BUILD)/dev.ptx -S -o $@ $<
+
+$(EXE): $(BUILD)/host.ll | check-runtime-cuda
+	clang $< $(RUNTIME_CUDA) -L$(CUDA_HOME)/lib64/stubs -lcuda -lpng -lm -o $@
+else
+$(BUILD)/dev.ll: $(DEVICE_UNIT) | $(BUILD)
+	$(PAS) $(FEATURES) -S -o $@ $<
+
+$(BUILD)/host.ll: $(HOST_SRC) | $(BUILD)
+	$(PAS) $(FEATURES) -S -o $@ $<
+
+$(EXE): $(BUILD)/host.ll $(BUILD)/dev.ll | check-runtime-cpu
+	clang $^ $(RUNTIME_CPU) -lpng -lm -o $@
+endif
