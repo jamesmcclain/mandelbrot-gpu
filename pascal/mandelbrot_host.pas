@@ -25,8 +25,9 @@ USES MANDELBROT (mandelbrot_f32, mandelbrot_f64);
   with no GPU and no NVIDIA toolchain.  See pascal/Makefile. }
 
 CONST
-  width    = 3840;
-  height   = 2160;
+  default_width  = 3840;
+  default_height = 2160;
+  max_dimension  = 8192;
   max_iter = 512;
 
   block_x = 16;
@@ -75,6 +76,15 @@ FUNCTION png_image_write_to_file(VAR image: PNGIMAGE;
                                  buffer: ADRMEM;
                                  row_stride: CINT;
                                  colormap: ADRMEM): CINT [C]; EXTERN;
+FUNCTION pas_arg_count: CINT [C]; EXTERN;
+FUNCTION pas_arg_value(index: CINT): ADRMEM [C]; EXTERN;
+FUNCTION atoi(text: ADRMEM): CINT [C]; EXTERN;
+
+{ Runtime fillc is an ordinary external routine in the native toolchain.
+  Use libc exit after reporting allocation failure; native codegen does not
+  implement the reference compiler's ABORT string-to-pabort lowering. }
+PROCEDURE fillc(loc: ADRMEM; len: WORD; val: CHAR); EXTERN;
+PROCEDURE exit(status: CINT) [C]; EXTERN;
 
 VAR
   outfile: LSTRING(96);
@@ -84,12 +94,13 @@ VAR
 
   dev: ADRMEM;
   iters: PITER;
-  pixels: PPIX;
+  pixel_buf: PPIX;
   x_min, x_max, y_min, y_max: REAL;
   x_min32, x_max32, y_min32, y_max32: REAL32;
   bytes, npixels, channels: INTEGER32;
   blocks_x, blocks_y: INTEGER32;
-  ok: CINT;
+  width, height: INTEGER32;
+  argc, ok: CINT;
   use_f32, grayscale: BOOLEAN;
   theme: INTEGER32;
 
@@ -105,24 +116,34 @@ BEGIN
   CASE which OF
     1:
       BEGIN
-        x_min := -2.9722; x_max := 1.4722; y_min := -1.25; y_max := 1.25
+        x_min := -2.9722; x_max := 1.4722; y_min := -1.25; y_max := 1.25;
+        x_min32 := 2.9722; x_min32 := -x_min32;
+        x_max32 := 1.4722; y_min32 := 1.25; y_min32 := -y_min32; y_max32 := 1.25
       END;
     2:
       BEGIN
-        x_min := -0.7828; x_max := -0.6832; y_min := 0.092; y_max := 0.148
+        x_min := -0.7828; x_max := -0.6832; y_min := 0.092; y_max := 0.148;
+        x_min32 := 0.7828; x_min32 := -x_min32;
+        x_max32 := 0.6832; x_max32 := -x_max32; y_min32 := 0.092; y_max32 := 0.148
       END;
     3:
       BEGIN
-        x_min := 0.1994; x_max := 0.4306; y_min := -0.065; y_max := 0.065
+        x_min := 0.1994; x_max := 0.4306; y_min := -0.065; y_max := 0.065;
+        x_min32 := 0.1994; x_max32 := 0.4306;
+        y_min32 := 0.065; y_min32 := -y_min32; y_max32 := 0.065
       END;
     4:
       BEGIN
-        x_min := -0.7801; x_max := -0.7249; y_min := 0.1000; y_max := 0.1310
+        x_min := -0.7801; x_max := -0.7249; y_min := 0.1000; y_max := 0.1310;
+        x_min32 := 0.7801; x_min32 := -x_min32;
+        x_max32 := 0.7249; x_max32 := -x_max32; y_min32 := 0.1000; y_max32 := 0.1310
       END;
     OTHERWISE
       BEGIN
         WRITELN('unknown view ', which, '; using overview');
-        x_min := -2.9722; x_max := 1.4722; y_min := -1.25; y_max := 1.25
+        x_min := -2.9722; x_max := 1.4722; y_min := -1.25; y_max := 1.25;
+        x_min32 := 2.9722; x_min32 := -x_min32;
+        x_max32 := 1.4722; y_min32 := 1.25; y_min32 := -y_min32; y_max32 := 1.25
       END
   END
 END;
@@ -254,13 +275,13 @@ BEGIN
       level := TRUNC(255.0 * log_iter / log_max)
     END;
     IF grayscale THEN
-      pixels^[i] := WRD8(level)
+      pixel_buf^[i] := WRD8(level)
     ELSE
     BEGIN
       color_pixel(WRD8(level));   { WRD8 narrows the 0..255 INTEGER32 }
-      pixels^[3 * i] := out_r;
-      pixels^[3 * i + 1] := out_g;
-      pixels^[3 * i + 2] := out_b
+      pixel_buf^[3 * i] := out_r;
+      pixel_buf^[3 * i + 1] := out_g;
+      pixel_buf^[3 * i + 2] := out_b
     END
   END
 END;
@@ -278,19 +299,39 @@ BEGIN
   fname[len] := CHR(0);
 
   { Zero the control record (png_image requires it), then fill it in. }
-  FILLC(ADR image, SIZEOF(image), CHR(0));
+  fillc(ADR image, WRD(SIZEOF(image)), CHR(0));
   image.version := png_image_version;
-  image.width := width;
-  image.height := height;
+  image.width := RETYPE(WORD32, width);
+  image.height := RETYPE(WORD32, height);
   IF grayscale THEN
     image.format := png_format_gray
   ELSE
     image.format := png_format_rgb;
 
-  ok := png_image_write_to_file(image, ADR fname, 0, pixels, 0, NIL)
+  ok := png_image_write_to_file(image, ADR fname, 0, pixel_buf, 0, NIL)
 END;
 
 BEGIN
+  width := default_width;
+  height := default_height;
+  argc := pas_arg_count;
+  IF argc = 7 THEN
+  BEGIN
+    width := RETYPE(INTEGER32, atoi(pas_arg_value(5)));
+    height := RETYPE(INTEGER32, atoi(pas_arg_value(6)));
+    IF (width < 1) OR (width > max_dimension) OR
+       (height < 1) OR (height > max_dimension) THEN
+    BEGIN
+      WRITELN('width and height must be decimal values from 1 to ', max_dimension);
+      exit(1)
+    END
+  END
+  ELSE IF argc <> 5 THEN
+  BEGIN
+    WRITELN('usage: mandelbrot outfile view precision theme [width height]');
+    exit(1)
+  END;
+
   use_f32 := FALSE;
   IF (prec = 's') OR (prec = 'S') THEN
     use_f32 := TRUE;
@@ -317,14 +358,16 @@ BEGIN
 
   dev := DEVALLOC(bytes);
   IF dev = NIL THEN
-    ABORT('device allocation failed', WRD(1), WRD(1));
+  BEGIN
+    WRITELN('device allocation failed');
+    exit(1)
+  END;
 
   NEW(iters, npixels - 1);
-  NEW(pixels, npixels * channels - 1);
+  NEW(pixel_buf, npixels * channels - 1);
 
   IF use_f32 THEN
   BEGIN
-    x_min32 := x_min; x_max32 := x_max; y_min32 := y_min; y_max32 := y_max;
     LAUNCH(mandelbrot_f32, blocks_x, blocks_y, 1, block_x, block_y, 1,
            dev, width, height, max_iter, x_min32, x_max32, y_min32, y_max32)
   END
@@ -338,7 +381,7 @@ BEGIN
   colorize;
   write_png;
 
-  DISPOSE(pixels);
+  DISPOSE(pixel_buf);
   DISPOSE(iters);
 
   IF ok = 1 THEN
@@ -350,5 +393,8 @@ BEGIN
       WRITELN('precision: f64')
   END
   ELSE
-    WRITELN('png write failed')
+  BEGIN
+    WRITELN('png write failed');
+    exit(1)
+  END
 END.
